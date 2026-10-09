@@ -147,29 +147,9 @@ export function App() {
     setIsSavingObservation(true);
     setPersistenceError(null);
 
-    // Persist to IndexedDB
+    // Step 1: Critical write to IndexedDB
     try {
       await saveSession(updatedSession);
-      const all = await getAllSessions();
-      all.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-      setPastSessions(all);
-
-      // Successfully saved - commit state
-      setActiveSession(updatedSession);
-      setPendingPhoto(null);
-      setPendingObservation(null);
-      setPersistenceError(null);
-      setIsSavingObservation(false);
-
-      // Trigger completion sound only after genuine 3rd observation confirmed & persisted
-      if (isFinished) {
-        playWalkCompleted();
-      } else {
-        playObservationConfirmed();
-      }
-
-      // Advance to between stops screen
-      setCurrentScreen('between');
     } catch (err: any) {
       console.error('Failed to save session to IndexedDB:', err);
       // Retain observation and photo in memory so user does not lose their work
@@ -179,6 +159,33 @@ export function App() {
         err?.message || 'Could not save observation to browser storage (quota exceeded or storage restricted). Your observation is held safely in memory.'
       );
       // DO NOT advance to between screen. Stay on review screen.
+      return;
+    }
+
+    // Step 2: Critical save succeeded - commit state and advance screen
+    setActiveSession(updatedSession);
+    setPendingPhoto(null);
+    setPendingObservation(null);
+    setPersistenceError(null);
+    setIsSavingObservation(false);
+
+    // Trigger completion sound only after genuine 3rd observation confirmed & persisted
+    if (isFinished) {
+      playWalkCompleted();
+    } else {
+      playObservationConfirmed();
+    }
+
+    // Advance to between stops screen
+    setCurrentScreen('between');
+
+    // Step 3: Non-critical background archive refresh
+    try {
+      const all = await getAllSessions();
+      all.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      setPastSessions(all);
+    } catch (err) {
+      console.warn('Non-fatal: Failed to refresh background session archive:', err);
     }
   };
 

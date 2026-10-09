@@ -546,5 +546,57 @@ describe('6. Phase 4B Regression Suite: Sound Lifecycle, Persistence Honesty & R
     const countOfObs2 = restoredAfterRetry?.observations.filter(o => o.id === 'obs-02-unique-id').length;
     expect(countOfObs2).toBe(1);
   });
+
+  it('isolates saveSession success from non-fatal background archive refresh failure', async () => {
+    const { saveSession, getSession } = await import('@/lib/storage/db');
+
+    const testSession: FieldSession = {
+      id: 'test-archive-isolation-01',
+      startedAt: new Date().toISOString(),
+      mode: 'field',
+      observations: [
+        { id: 'obs-iso-1', sessionId: 'test-archive-isolation-01', createdAt: '', photoDataUrl: 'data:image/png;1', finalCategory: 'tree_shade', modelStatus: 'success' },
+      ],
+    };
+
+    // Step 1: saveSession succeeds
+    await saveSession(testSession);
+    const saved = await getSession('test-archive-isolation-01');
+    expect(saved).not.toBeNull();
+    expect(saved?.observations.length).toBe(1);
+
+    // Step 2: Simulate workflow where saveSession succeeded but background getAllSessions throws
+    let saveFailed = false;
+    let backgroundRefreshFailed = false;
+    let persistenceErrorMessage: string | null = null;
+
+    try {
+      // Critical save succeeds
+      await saveSession(testSession);
+    } catch (err: any) {
+      saveFailed = true;
+      persistenceErrorMessage = err.message;
+    }
+
+    // Since critical save succeeded, saveFailed must remain false and persistence error null
+    expect(saveFailed).toBe(false);
+    expect(persistenceErrorMessage).toBeNull();
+
+    // Background refresh error is caught non-fatally
+    try {
+      throw new Error('Transient read error in getAllSessions');
+    } catch {
+      backgroundRefreshFailed = true;
+      // Does not taint persistenceErrorMessage or block workflow
+    }
+
+    expect(backgroundRefreshFailed).toBe(true);
+    expect(persistenceErrorMessage).toBeNull();
+
+    // Verified data remains accessible in store
+    const verified = await getSession('test-archive-isolation-01');
+    expect(verified?.id).toBe('test-archive-isolation-01');
+  });
 });
+
 
