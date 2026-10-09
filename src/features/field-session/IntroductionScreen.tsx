@@ -9,10 +9,12 @@ import {
   Sparkles, 
   ArrowRight, 
   Camera, 
-  BookOpen 
+  BookOpen,
+  ChevronRight
 } from 'lucide-react';
 import { FieldSession } from '@/types';
 import { formatFieldDate } from '@/lib/utils';
+import { playTick } from '@/lib/sound/soundEffects';
 
 interface IntroductionScreenProps {
   onStartWalk: () => void;
@@ -34,47 +36,50 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
   onDiscardWalk,
 }) => {
   return (
-    <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 sm:py-12 flex flex-col justify-between">
+    <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 sm:py-10 flex flex-col justify-between">
       <div>
-        {/* Eyebrow */}
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-forest-100 text-forest-800 text-xs font-semibold tracking-wider uppercase mb-5 border border-forest-600/20">
-          <Sparkles className="w-3.5 h-3.5 text-forest-600" />
-          <span>An Open-Weight Field Notebook</span>
+        {/* Eyebrow Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-forest-100 text-forest-800 text-xs font-semibold tracking-wider uppercase mb-4 sm:mb-5 border border-forest-600/20 select-none">
+          <Sparkles className="w-3.5 h-3.5 text-forest-600 shrink-0" />
+          <span className="truncate">Open-Weight Field Notebook</span>
         </div>
 
-        {/* Headline */}
-        <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-forest-900 leading-[1.15] mb-4">
+        {/* Editorial Headline with Responsive Scaling */}
+        <h1 className="font-serif text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-forest-900 leading-[1.18] mb-3 sm:mb-4 break-words">
           Discover the shade hiding in your neighborhood.
         </h1>
 
-        {/* Description */}
-        <p className="text-base sm:text-lg text-stone-slate leading-relaxed mb-6 max-w-xl">
-          Take a short walk. Document three everyday places. Let locally running open-weight AI examine visible canopy and architectural cover. See your familiar streets with fresh eyes.
+        {/* Lead Narrative */}
+        <p className="text-sm sm:text-base md:text-lg text-stone-slate leading-relaxed mb-6 max-w-xl">
+          Take a short walk. Document three everyday outdoor places. Let locally running open-weight AI examine visible canopy and architectural cover. See your familiar streets with fresh eyes.
         </p>
 
         {/* Interrupted Session Recovery Banner */}
         {inProgressSession && onResumeWalk && (
-          <div className="mb-8 p-4 rounded-xl bg-forest-100/90 border border-forest-600/30 text-xs text-forest-900 shadow-sm animate-in fade-in duration-300">
+          <div className="mb-6 sm:mb-8 p-4 rounded-2xl bg-forest-100/90 border border-forest-600/30 text-xs text-forest-900 shadow-xs animate-fade-in">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-forest-600 animate-pulse" />
-                <span className="font-semibold uppercase tracking-wider text-[11px] text-forest-800">
-                  Walk In Progress Detected
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-forest-600 animate-pulse shrink-0" />
+                <span className="font-semibold uppercase tracking-wider text-[11px] text-forest-800 truncate">
+                  Walk In Progress
                 </span>
               </div>
-              <span className="text-[11px] text-stone-muted">
+              <span className="text-[11px] text-stone-muted shrink-0">
                 {formatFieldDate(inProgressSession.startedAt)}
               </span>
             </div>
-            <p className="text-stone-slate mb-3 leading-relaxed">
+            <p className="text-stone-slate mb-3.5 leading-relaxed text-xs">
               You have an active walk with <strong>{inProgressSession.observations.length} of 3 stops</strong> recorded on this device.
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button 
                 size="sm" 
                 variant="primary" 
-                onClick={() => onResumeWalk(inProgressSession)} 
-                className="flex items-center gap-1.5 shadow-sm"
+                onClick={() => {
+                  playTick();
+                  onResumeWalk(inProgressSession);
+                }} 
+                className="flex items-center gap-1.5 shadow-xs"
               >
                 <Footprints className="w-3.5 h-3.5" />
                 <span>Resume walk (Stop 0{inProgressSession.observations.length + 1})</span>
@@ -94,12 +99,15 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
         )}
 
         {/* Primary CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-10">
+        <div className="flex flex-col sm:flex-row gap-3 mb-8 sm:mb-10">
           <Button
             size="lg"
             variant="primary"
-            onClick={onStartWalk}
-            className="group flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+            onClick={() => {
+              playTick();
+              onStartWalk();
+            }}
+            className="group w-full sm:w-auto flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
           >
             <span>Start exploring</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -108,18 +116,21 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
           <Button
             size="lg"
             variant="secondary"
-            onClick={onStartSample}
-            className="flex items-center justify-center gap-2"
+            onClick={() => {
+              playTick();
+              onStartSample();
+            }}
+            className="w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <Camera className="w-4 h-4 text-stone-muted" />
             <span>Try with sample photos</span>
           </Button>
         </div>
 
-        {/* Core Principles Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-10">
-          <Card className="p-4 bg-paper-50/80 border-stone-border/70 hover:border-forest-600/40 transition-colors">
-            <div className="w-8 h-8 rounded-md bg-forest-100 text-forest-800 flex items-center justify-center mb-3">
+        {/* Core Principles Bento Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-3.5 mb-8 sm:mb-10">
+          <Card className="p-4 bg-paper-50/90 border-stone-border/80 hover:border-forest-600/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-forest-100 text-forest-800 flex items-center justify-center mb-2.5">
               <Footprints className="w-4 h-4" />
             </div>
             <h3 className="font-semibold text-sm text-forest-900 mb-1">Three stops</h3>
@@ -128,8 +139,8 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
             </p>
           </Card>
 
-          <Card className="p-4 bg-paper-50/80 border-stone-border/70 hover:border-forest-600/40 transition-colors">
-            <div className="w-8 h-8 rounded-md bg-canopy-mist/50 text-canopy-emerald flex items-center justify-center mb-3">
+          <Card className="p-4 bg-paper-50/90 border-stone-border/80 hover:border-forest-600/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-canopy-mist/50 text-canopy-emerald flex items-center justify-center mb-2.5">
               <Cpu className="w-4 h-4" />
             </div>
             <h3 className="font-semibold text-sm text-forest-900 mb-1">Local vision AI</h3>
@@ -138,28 +149,28 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
             </p>
           </Card>
 
-          <Card className="p-4 bg-paper-50/80 border-stone-border/70 hover:border-forest-600/40 transition-colors">
-            <div className="w-8 h-8 rounded-md bg-sunlit-sand/40 text-sunlit-ochre flex items-center justify-center mb-3">
+          <Card className="p-4 bg-paper-50/90 border-stone-border/80 hover:border-forest-600/40 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-sunlit-sand/40 text-sunlit-ochre flex items-center justify-center mb-2.5">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <h3 className="font-semibold text-sm text-forest-900 mb-1">100% Private</h3>
+            <h3 className="font-semibold text-sm text-forest-900 mb-1">Private by design</h3>
             <p className="text-xs text-stone-muted leading-relaxed">
-              No login, no tracking, and no server image storage. Stored in IndexedDB.
+              No account, no tracking, and no cloud photo uploads. Stored in IndexedDB.
             </p>
           </Card>
         </div>
 
         {/* Technical Honesty & Model Disclosure */}
-        <div className="p-4 rounded-xl bg-forest-50/60 border border-forest-600/20 text-xs text-stone-slate space-y-2 mb-10">
+        <div className="p-4 sm:p-4.5 rounded-2xl bg-forest-50/60 border border-forest-600/20 text-xs text-stone-slate space-y-2 mb-8 sm:mb-10">
           <div className="flex items-center gap-1.5 font-semibold text-forest-900">
-            <BookOpen className="w-4 h-4 text-forest-700" />
+            <BookOpen className="w-4 h-4 text-forest-700 shrink-0" />
             <span>Field Notebook Disclosure</span>
           </div>
-          <p className="leading-relaxed">
-            Shadeprint evaluates <strong className="text-forest-900">visible shade characteristics</strong> (tree canopy, structural overhangs, or open sunlight) using the open-weight <code className="bg-paper-200 px-1 py-0.5 rounded text-[11px]">Xenova/clip-vit-base-patch32</code> model. It does not measure ambient microclimates, thermal comfort, or UV radiation.
+          <p className="leading-relaxed text-xs">
+            Shadeprint evaluates <strong className="text-forest-900">visible physical shade conditions</strong> (tree canopy, structural overhangs, or open sunlight) using the open-weight <code className="bg-paper-200 px-1 py-0.5 rounded text-[11px] font-mono">Xenova/clip-vit-base-patch32</code> model. It does not measure ambient microclimates, thermal comfort, or UV radiation.
           </p>
-          <p className="text-[11px] text-stone-muted">
-            Model weights (~150MB ONNX) download once on first run and are cached locally by your browser.
+          <p className="text-[11px] text-stone-muted leading-relaxed">
+            First-time launch downloads ~606 MB of unquantized FP32 weights stored in your browser's Cache API for subsequent use (subject to device storage policies). Pre-loading over Wi-Fi is recommended.
           </p>
         </div>
 
@@ -175,25 +186,31 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
               {pastSessions.slice(0, 3).map((session) => (
                 <div
                   key={session.id}
-                  onClick={() => onViewPastReport(session)}
-                  className="p-3 bg-paper-50 rounded-lg border border-stone-border hover:border-forest-600/50 cursor-pointer flex items-center justify-between transition-colors text-xs"
+                  onClick={() => {
+                    playTick();
+                    onViewPastReport(session);
+                  }}
+                  className="p-3.5 bg-paper-50 rounded-xl border border-stone-border/80 hover:border-forest-600/50 active:bg-paper-100 cursor-pointer flex items-center justify-between gap-3 transition-colors text-xs select-none touch-manipulation shadow-2xs"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded bg-forest-100 text-forest-800 flex items-center justify-center font-serif font-bold text-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-forest-100 text-forest-800 flex items-center justify-center font-serif font-bold text-xs shrink-0">
                       {session.observations.length}
                     </div>
-                    <div>
-                      <p className="font-semibold text-forest-900">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-forest-900 truncate">
                         {session.mode === 'sample' ? 'Sample Demonstration Session' : 'Neighborhood Field Walk'}
                       </p>
-                      <p className="text-stone-muted text-[11px]">
+                      <p className="text-stone-muted text-[11px] truncate">
                         {formatFieldDate(session.startedAt)}
                       </p>
                     </div>
                   </div>
-                  <Badge variant={session.mode === 'sample' ? 'sample' : 'success'} className="text-[10px]">
-                    {session.mode === 'sample' ? 'Sample' : 'Complete'}
-                  </Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant={session.mode === 'sample' ? 'sample' : 'success'} size="sm">
+                      {session.mode === 'sample' ? 'Sample' : 'Complete'}
+                    </Badge>
+                    <ChevronRight className="w-4 h-4 text-stone-muted" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -201,8 +218,8 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
         )}
       </div>
 
-      {/* Footer attribution */}
-      <footer className="pt-8 border-t border-stone-border/40 text-[11px] text-stone-muted flex flex-col sm:flex-row items-center justify-between gap-2">
+      {/* Footer Attribution */}
+      <footer className="pt-8 pb-safe border-t border-stone-border/40 text-[11px] text-stone-muted flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
         <span>Built for Hacktoberfest 2026: Touch Grass Challenge</span>
         <span>Open Weights · On-Device Inference · MIT License</span>
       </footer>

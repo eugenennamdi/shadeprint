@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Collapsible } from '@/components/ui/Collapsible';
 import { 
   ShadeCategory, 
   ModelScoreDetail, 
@@ -24,6 +25,7 @@ import {
   Cpu,
   Download
 } from 'lucide-react';
+import { playTick, playObservationConfirmed } from '@/lib/sound/soundEffects';
 
 interface ObservationReviewScreenProps {
   currentStopIndex: number;
@@ -92,7 +94,6 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
         if (!isCancelled) {
           setModelStatus('error');
           setErrorMessage(err?.message || 'Open-weight model failed to load. You can still confirm your observation manually.');
-          // Default selection for manual entry
           setSelectedCategory('unclear');
         }
       }
@@ -107,6 +108,8 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
   }, [photoDataUrl]);
 
   const handleConfirm = () => {
+    if (modelStatus === 'analyzing' || modelStatus === 'loading_weights') return;
+    playObservationConfirmed();
     onConfirmObservation(
       selectedCategory,
       aiSuggestedCategory,
@@ -117,148 +120,85 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
 
   const isUserOverriding = aiSuggestedCategory && selectedCategory !== aiSuggestedCategory;
 
-  const getCategoryIcon = (category: ShadeCategory) => {
+  const getCategoryIcon = (category: ShadeCategory, className = 'w-4 h-4') => {
     switch (category) {
       case 'tree_shade':
-        return <Trees className="w-4 h-4 text-forest-700" />;
+        return <Trees className={`${className} text-forest-700`} />;
       case 'built_shade':
-        return <Building2 className="w-4 h-4 text-stone-slate" />;
+        return <Building2 className={`${className} text-stone-slate`} />;
       case 'exposed':
-        return <SunMedium className="w-4 h-4 text-sunlit-ochre" />;
+        return <SunMedium className={`${className} text-sunlit-ochre`} />;
       case 'unclear':
-        return <HelpCircle className="w-4 h-4 text-stone-muted" />;
+        return <HelpCircle className={`${className} text-stone-muted`} />;
     }
   };
 
   return (
-    <div className="flex-1 max-w-xl mx-auto w-full px-4 py-6 sm:py-8 flex flex-col justify-between">
+    <div className="flex-1 max-w-xl mx-auto w-full px-4 py-5 sm:py-8 flex flex-col justify-between">
       <div>
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           <span className="font-mono text-xs font-bold text-forest-700 uppercase tracking-widest">
             Observation {stopNumberString} / 0{totalStops}
           </span>
           {locationLabel && (
-            <span className="text-xs text-stone-muted truncate max-w-[200px]">
+            <span className="text-xs text-stone-muted truncate max-w-[180px] font-medium">
               {locationLabel}
             </span>
           )}
         </div>
 
-        <h2 className="font-serif text-2xl font-bold text-forest-900 mb-1">
+        <h2 className="font-serif text-2xl sm:text-3xl font-bold text-forest-900 mb-1 leading-tight">
           Review your observation
         </h2>
-        <p className="text-xs text-stone-slate mb-5">
+        <p className="text-xs sm:text-sm text-stone-slate mb-4 leading-relaxed">
           Verify what the open-weight model sees against what you actually experienced outside.
         </p>
 
-        {/* Captured Photo Card */}
-        <div className="relative aspect-[16/9] rounded-xl overflow-hidden bg-stone-100 border border-stone-border shadow-sm mb-5">
+        {/* 1. Captured Photo Box */}
+        <div className="relative aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-stone-100 border border-stone-border/80 shadow-xs mb-4">
           <img
             src={photoDataUrl}
             alt="Captured field observation"
             className="w-full h-full object-cover"
           />
 
-          {/* Model status overlay / banner */}
+          {/* Model Status Overlay Pill */}
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
             {modelStatus === 'loading_weights' && (
-              <div className="px-3 py-1.5 rounded-lg bg-forest-900/90 text-paper-50 text-xs backdrop-blur-md flex items-center gap-2 shadow">
-                <Download className="w-3.5 h-3.5 animate-bounce" />
-                <span>
-                  Downloading model: {Math.round(downloadProgress?.progress || 0)}%
+              <div className="px-3 py-1.5 rounded-xl bg-forest-900/90 text-paper-50 text-xs backdrop-blur-md flex items-center gap-2 shadow-md">
+                <Download className="w-3.5 h-3.5 animate-bounce shrink-0" />
+                <span className="font-medium">
+                  Downloading weights: {Math.round(downloadProgress?.progress || 0)}%
                 </span>
               </div>
             )}
 
             {modelStatus === 'analyzing' && (
-              <div className="px-3 py-1.5 rounded-lg bg-forest-900/90 text-paper-50 text-xs backdrop-blur-md flex items-center gap-2 shadow">
-                <Cpu className="w-3.5 h-3.5 animate-pulse text-canopy-leaf" />
-                <span>Running local CLIP inference...</span>
+              <div className="px-3 py-1.5 rounded-xl bg-forest-900/90 text-paper-50 text-xs backdrop-blur-md flex items-center gap-2 shadow-md">
+                <Cpu className="w-3.5 h-3.5 animate-pulse text-canopy-leaf shrink-0" />
+                <span className="font-medium">Analyzing with local CLIP model...</span>
               </div>
             )}
 
             {modelStatus === 'success' && aiSuggestedCategory && (
-              <div className="px-2.5 py-1 rounded-md bg-paper-50/95 text-forest-900 text-xs backdrop-blur-md font-medium border border-stone-border/80 flex items-center gap-1.5 shadow-sm">
-                <Sparkles className="w-3 h-3 text-forest-600" />
-                <span>AI suggested: {CATEGORY_METADATA[aiSuggestedCategory].name}</span>
+              <div className="px-3 py-1.5 rounded-xl bg-paper-50/95 text-forest-900 text-xs backdrop-blur-md font-semibold border border-stone-border/80 flex items-center gap-1.5 shadow-sm">
+                <Sparkles className="w-3.5 h-3.5 text-forest-600 shrink-0" />
+                <span>AI suggestion: {CATEGORY_METADATA[aiSuggestedCategory].name}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Model Results / Technical Honesty Card */}
-        {modelStatus === 'success' && (
-          <div className="mb-6 p-4 rounded-xl bg-paper-50 border border-stone-border/80 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-forest-700" />
-                  <span className="text-xs font-semibold text-forest-900">
-                    Relative Candidate Match
-                  </span>
-                </div>
-                <p className="text-[10px] text-stone-muted mt-0.5">
-                  Contrastive scores normalized across candidate prompts. Not an absolute physical probability.
-                </p>
-              </div>
-              {inferenceDurationMs !== null && (
-                <span className="text-[11px] font-mono text-stone-muted shrink-0">
-                  {inferenceDurationMs}ms
-                </span>
-              )}
-            </div>
-
-            {/* Relative CLIP Score Bars */}
-            <div className="space-y-2 pt-1">
-              {scores.map((s) => {
-                const percent = Math.round(s.score * 100);
-                const isTop = s.category === aiSuggestedCategory;
-                return (
-                  <div key={s.category} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className={`flex items-center gap-1.5 ${isTop ? 'font-semibold text-forest-900' : 'text-stone-slate'}`}>
-                        {getCategoryIcon(s.category)}
-                        <span>{CATEGORY_METADATA[s.category]?.name || s.category}</span>
-                      </span>
-                      <span className="font-mono text-[11px] text-stone-muted font-medium">
-                        Relative match: {percent}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-paper-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isTop ? 'bg-forest-700' : 'bg-stone-border'
-                        }`}
-                        style={{ width: `${Math.max(percent, 2)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Uncertainty notice if applicable */}
-            {isUncertain && (
-              <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                <p className="text-[11px] leading-relaxed">
-                  <strong>Heuristic uncertainty:</strong> Low margin between candidates or low overall score. The model makes a suggestion, not an authoritative determination—verify what you actually observed below.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Model Loading State */}
+        {/* Loading Weights Progress Card */}
         {modelStatus === 'loading_weights' && (
-          <div className="mb-6 p-4 rounded-xl bg-forest-50/70 border border-forest-600/20 text-xs text-stone-slate space-y-2">
-            <div className="flex items-center justify-between font-medium text-forest-900">
-              <span className="flex items-center gap-1.5">
-                <Download className="w-3.5 h-3.5 text-forest-700" />
-                <span>Downloading open weights ({downloadProgress?.file || 'model.onnx'})</span>
+          <div className="mb-4 p-4 rounded-2xl bg-forest-50/80 border border-forest-600/20 text-xs text-stone-slate space-y-2 animate-fade-in shadow-2xs">
+            <div className="flex items-center justify-between font-semibold text-forest-900">
+              <span className="flex items-center gap-2">
+                <Download className="w-4 h-4 text-forest-700" />
+                <span>Downloading unquantized weights (FP32)</span>
               </span>
-              <span className="font-mono">{Math.round(downloadProgress?.progress || 0)}%</span>
+              <span className="font-mono text-xs">{Math.round(downloadProgress?.progress || 0)}%</span>
             </div>
             <div className="h-2 w-full bg-paper-200 rounded-full overflow-hidden">
               <div
@@ -266,43 +206,64 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
                 style={{ width: `${downloadProgress?.progress || 0}%` }}
               />
             </div>
-            <p className="text-[11px] text-stone-muted">
-              Weights are cached in your browser. Future walks analyze instantly offline.
+            <p className="text-[11px] text-stone-muted leading-relaxed">
+              Once downloaded (~606 MB), weights are cached in your browser. Future walks analyze instantly without re-downloading.
             </p>
           </div>
         )}
 
-        {/* Model Error State */}
+        {/* Error State Banner */}
         {modelStatus === 'error' && (
-          <div className="mb-6 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 flex items-start gap-2.5">
+          <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 flex items-start gap-2.5 animate-fade-in">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold">Local AI Inference Unavailable</p>
               <p className="text-[11px] mt-0.5 leading-relaxed text-red-800">
                 {errorMessage}
               </p>
-              <p className="text-[11px] mt-1 font-medium">
+              <p className="text-[11px] mt-1 font-medium text-forest-900">
                 You can still classify this observation manually below.
               </p>
             </div>
           </div>
         )}
 
-        {/* Human Confirmation Section */}
-        <div className="mb-6 space-y-3">
+        {/* 2 & 3. Clear AI Suggestion Banner */}
+        {modelStatus === 'success' && aiSuggestedCategory && (
+          <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-forest-50/80 border border-forest-600/30 flex items-start gap-3 shadow-2xs animate-fade-in">
+            <div className="p-2 rounded-xl bg-forest-100 text-forest-800 shrink-0 mt-0.5">
+              {getCategoryIcon(aiSuggestedCategory, 'w-5 h-5')}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-forest-800 uppercase tracking-wider">
+                  AI Suggestion
+                </span>
+                <Badge variant="success" size="sm">
+                  {CATEGORY_METADATA[aiSuggestedCategory].name}
+                </Badge>
+              </div>
+              <p className="text-xs text-stone-slate mt-1 leading-relaxed">
+                {CATEGORY_METADATA[aiSuggestedCategory].desc}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 4. Human Confirmation & Correction Cards */}
+        <div className="mb-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-semibold text-stone-slate uppercase tracking-wider">
-              Confirm or correct category
+              Your ground-truth observation
             </label>
             {isUserOverriding && (
-              <Badge variant="warning" className="text-[10px]">
-                Human correction active
+              <Badge variant="warning" size="sm">
+                Human override active
               </Badge>
             )}
           </div>
 
-          {/* Category selection grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(['tree_shade', 'built_shade', 'exposed', 'unclear'] as ShadeCategory[]).map((cat) => {
               const meta = CATEGORY_METADATA[cat];
               const isSelected = selectedCategory === cat;
@@ -312,35 +273,39 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
                 <button
                   key={cat}
                   type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`p-3 rounded-xl border text-left transition-all flex items-start justify-between ${
+                  onClick={() => {
+                    playTick();
+                    setSelectedCategory(cat);
+                  }}
+                  className={`p-3 sm:p-3.5 rounded-2xl border text-left transition-all flex items-start justify-between min-h-[52px] select-none touch-manipulation active:scale-[0.98] ${
                     isSelected
-                      ? 'bg-paper-50 border-forest-800 shadow-sm ring-1 ring-forest-800'
-                      : 'bg-paper-50/60 border-stone-border/80 hover:bg-paper-50 hover:border-stone-border'
+                      ? 'bg-paper-50 border-forest-800 shadow-xs ring-2 ring-forest-800/80'
+                      : 'bg-paper-50/70 border-stone-border/80 hover:bg-paper-50 hover:border-stone-slate/30'
                   }`}
                 >
-                  <div className="space-y-0.5 pr-2">
-                    <div className="flex items-center gap-1.5 font-semibold text-xs text-forest-900">
-                      {getCategoryIcon(cat)}
-                      <span>{meta.name}</span>
+                  <div className="space-y-0.5 pr-2 min-w-0">
+                    <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm text-forest-900">
+                      {getCategoryIcon(cat, 'w-4 h-4')}
+                      <span className="truncate">{meta.name}</span>
                       {isAiPick && (
-                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-forest-100 text-forest-800 border border-forest-600/30 uppercase">
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-forest-100 text-forest-800 border border-forest-600/30 uppercase shrink-0 font-bold">
                           AI
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-stone-muted leading-tight">
+                    <p className="text-[11px] text-stone-muted leading-tight line-clamp-2">
                       {meta.desc}
                     </p>
                   </div>
+
                   <div
-                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                    className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                       isSelected
-                        ? 'border-forest-800 bg-forest-800 text-paper-50'
-                        : 'border-stone-border bg-paper-200'
+                        ? 'border-forest-800 bg-forest-800 text-paper-50 shadow-2xs'
+                        : 'border-stone-border bg-paper-200/80'
                     }`}
                   >
-                    {isSelected && <Check className="w-2.5 h-2.5" />}
+                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
                 </button>
               );
@@ -348,8 +313,71 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
           </div>
         </div>
 
-        {/* Optional field note */}
-        <div className="mb-6 space-y-1.5">
+        {/* 5. Collapsible: "How the AI decided" (Progressive Technical Disclosure) */}
+        {modelStatus === 'success' && scores.length > 0 && (
+          <div className="mb-4">
+            <Collapsible
+              icon={<Cpu className="w-4 h-4" />}
+              title="How the AI decided"
+              subtitle="Relative contrastive prompt scores & diagnostics"
+              badge={
+                inferenceDurationMs !== null ? (
+                  <span className="text-[10px] font-mono bg-paper-200/80 px-1.5 py-0.5 rounded text-stone-muted">
+                    {inferenceDurationMs}ms
+                  </span>
+                ) : undefined
+              }
+            >
+              <div className="space-y-3 pt-1">
+                <p className="text-[11px] text-stone-muted leading-relaxed">
+                  Scores represent softmax-normalized cosine similarity across candidate descriptions. They indicate relative contrastive alignment, not physical shade area or calibrated probability.
+                </p>
+
+                {/* Score Bars */}
+                <div className="space-y-2">
+                  {scores.map((s) => {
+                    const percent = Math.round(s.score * 100);
+                    const isTop = s.category === aiSuggestedCategory;
+                    return (
+                      <div key={s.category} className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className={`flex items-center gap-1.5 ${isTop ? 'font-semibold text-forest-900' : 'text-stone-slate'}`}>
+                            {getCategoryIcon(s.category, 'w-3.5 h-3.5')}
+                            <span>{CATEGORY_METADATA[s.category]?.name || s.category}</span>
+                          </span>
+                          <span className="font-mono text-[11px] text-stone-muted font-medium">
+                            Relative match: {percent}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-paper-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              isTop ? 'bg-forest-700' : 'bg-stone-border'
+                            }`}
+                            style={{ width: `${Math.max(percent, 2)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Uncertainty Notice */}
+                {isUncertain && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      <strong>Heuristic uncertainty:</strong> Low candidate margin or low top score indicates ambiguous lighting. Verify ground truth above.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Collapsible>
+          </div>
+        )}
+
+        {/* Field Note */}
+        <div className="mb-4 space-y-1.5">
           <label className="block text-xs font-semibold text-stone-slate uppercase tracking-wider">
             Field Note <span className="text-stone-muted font-normal lowercase">(optional)</span>
           </label>
@@ -357,26 +385,34 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
             type="text"
             value={userNote}
             onChange={(e) => setUserNote(e.target.value)}
-            placeholder="e.g. Noticeable temperature drop under canopy; stark asphalt heat"
+            placeholder="e.g. Distinct cool draft under canopy; hot glare on sidewalk"
             maxLength={120}
-            className="w-full px-3 py-2 text-xs bg-paper-50 border border-stone-border rounded-lg text-stone-charcoal placeholder:text-stone-muted/70 focus:outline-none focus:ring-2 focus:ring-forest-600/30 focus:border-forest-600"
+            className="w-full px-3.5 py-2.5 text-[16px] sm:text-xs bg-paper-50 border border-stone-border rounded-xl text-stone-charcoal placeholder:text-stone-muted/70 focus:outline-none focus:ring-2 focus:ring-forest-600/30 focus:border-forest-600 transition-colors shadow-2xs"
           />
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="pt-6 border-t border-stone-border/60 flex items-center justify-between gap-3">
-        <Button variant="ghost" size="sm" onClick={onRetake} className="flex items-center gap-1">
+      {/* Bottom Sticky Action Bar */}
+      <div className="pt-4 pb-safe border-t border-stone-border/60 flex items-center justify-between gap-3 bg-paper-100/90 backdrop-blur-xs">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => {
+            playTick();
+            onRetake();
+          }} 
+          className="flex items-center gap-1.5 text-stone-muted hover:text-stone-charcoal"
+        >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Retake photo</span>
+          <span>Retake</span>
         </Button>
 
         <Button
           variant="primary"
           size="md"
           onClick={handleConfirm}
-          disabled={modelStatus === 'analyzing'}
-          className="flex items-center gap-1.5 shadow-sm"
+          disabled={modelStatus === 'analyzing' || modelStatus === 'loading_weights'}
+          className="flex items-center gap-2 shadow-sm font-semibold"
         >
           <span>Confirm observation</span>
           <ArrowRight className="w-4 h-4" />

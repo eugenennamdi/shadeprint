@@ -9,10 +9,54 @@
     --forest-deep: #183323;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: clip;
+  }
+
   body {
     background-color: var(--bg-paper);
     color: var(--text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background-color: #E7EFEA;
+    color: #112217;
+  }
+
+  /* Prevent automatic iOS zoom on input focus when font-size < 16px */
+  @media screen and (max-width: 640px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Safe area insets for notched mobile phones */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem));
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

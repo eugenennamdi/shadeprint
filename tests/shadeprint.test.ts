@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { FieldSession, Observation, ShadeCategory, ModelScoreDetail } from '../src/types';
 import { CANDIDATE_PROMPTS, CATEGORY_METADATA } from '../src/lib/ai/classifier';
 import { createMockIndexedDB } from './mock-idb';
@@ -369,3 +369,69 @@ describe('4. Report Generation & Scientific Integrity', () => {
     expect((observation as any).microclimateScore).toBeUndefined();
   });
 });
+
+describe('5. Mobile Design System & Sound Interaction Integrity', () => {
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => store.set(k, String(v)),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
+  };
+
+  beforeAll(() => {
+    (globalThis as any).localStorage = mockStorage;
+    (globalThis as any).window = globalThis;
+  });
+
+  beforeEach(() => {
+    mockStorage.clear();
+  });
+
+  it('guarantees sound feedback is strictly OFF by default', async () => {
+    const { isSoundEnabled } = await import('@/lib/sound/soundEffects');
+    expect(isSoundEnabled()).toBe(false);
+  });
+
+  it('persists sound user preference in localStorage upon opt-in', async () => {
+    const { isSoundEnabled, setSoundEnabled } = await import('@/lib/sound/soundEffects');
+    setSoundEnabled(true);
+    expect(isSoundEnabled()).toBe(true);
+    expect(localStorage.getItem('shadeprint_sound_enabled')).toBe('true');
+
+    setSoundEnabled(false);
+    expect(isSoundEnabled()).toBe(false);
+    expect(localStorage.getItem('shadeprint_sound_enabled')).toBe('false');
+  });
+
+  it('executes sound triggers safely without crashing when AudioContext is uninitialized', async () => {
+    const { playTick, playObservationConfirmed, playWalkCompleted, setSoundEnabled } = await import('@/lib/sound/soundEffects');
+    
+    // Even when enabled, calling synth in non-browser/headless environment must not throw
+    setSoundEnabled(true);
+    expect(() => playTick()).not.toThrow();
+    expect(() => playObservationConfirmed()).not.toThrow();
+    expect(() => playWalkCompleted()).not.toThrow();
+  });
+
+  it('ensures all shade categories have complete UI metadata and descriptions', async () => {
+    const { CATEGORY_METADATA } = await import('@/lib/ai/classifier');
+    const categories: ShadeCategory[] = ['tree_shade', 'built_shade', 'exposed', 'unclear'];
+
+    categories.forEach((cat) => {
+      const meta = CATEGORY_METADATA[cat];
+      expect(meta).toBeDefined();
+      expect(meta.name.length).toBeGreaterThan(0);
+      expect(meta.desc.length).toBeGreaterThan(0);
+      expect(meta.badge.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('verifies tailwind configuration defines mobile xs breakpoint at 375px', async () => {
+    // Dynamic import tailwind config
+    const tailwindConfig = await import('../tailwind.config.js');
+    const screens = tailwindConfig.default?.theme?.extend?.screens;
+    expect(screens?.xs).toBe('375px');
+  });
+});
+
