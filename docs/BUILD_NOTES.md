@@ -26,7 +26,8 @@ Shadeprint is structured as a zero-backend, fully client-side static web applica
 │            ▼                                                │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │     Open-Weight Vision Pipeline (Transformers.js)     │  │
-│  │     - Model: Xenova/clip-vit-base-patch32             │  │
+│  │     - Model: Xenova/clip-vit-base-patch32 (fp32)      │  │
+│  │     - Runtime: @huggingface/transformers v3.8.1       │  │
 │  │     - ONNX WebAssembly Runtime (WASM SIMD)            │  │
 │  │     - Zero-Shot Contrastive Classification            │  │
 │  └───────────────────────────────────────────────────────┘  │
@@ -34,7 +35,7 @@ Shadeprint is structured as a zero-backend, fully client-side static web applica
 ```
 
 ### Why This Stack?
-- **No Cloud Backend**: Prevents privacy leakage, eliminates cloud infrastructure cost, ensures offline operation outdoors where cellular reception may be patchy.
+- **No Cloud Backend**: Prevents privacy leakage, eliminates cloud infrastructure cost, and supports local execution outdoors where cellular reception may be patchy (subject to conditional browser cache persistence).
 - **Native IndexedDB without heavy ORMs**: Uses native browser IndexedDB via a clean promise wrapper (`src/lib/storage/db.ts`). Zero extra package dependencies.
 - **React 19 + TypeScript (Strict Mode)**: Strict compile-time checks ensure state safety across the 5 observation stages.
 - **Tailwind CSS**: Rapid styling with a tailored environmental color scheme (botanical greens, warm parchment neutrals, and sunlit ochre accents).
@@ -53,7 +54,7 @@ Conventional walking and navigation applications trap users in map overlays, gam
 A common temptation in AI environmental apps is claiming to measure microclimates, thermal indices, or tree canopy percentages. We deliberately avoided this:
 - **Visible Shade Only**: We classify whether visible shadows stem from vegetative foliage, architectural walls, or open sun.
 - **No Fake Microclimates**: The app does not display simulated temperature reductions or fabricated environmental health scores.
-- **Relative Uncertainty**: If CLIP's top candidate scores are within 10 percentage points of each other, the app flags the result as uncertain and elevates the user's ground-truth judgment.
+- **Relative Uncertainty & Scores**: Scores are normalized relative contrastive matches across the 3 prompts, not calibrated statistical probabilities or measured accuracy. If CLIP's top candidate scores are within 10 percentage points of each other (or top score < 42%), the app flags the result as uncertain and elevates the user's ground-truth judgment.
 
 ---
 
@@ -90,9 +91,11 @@ When evaluating open-weight vision models for in-browser pedestrian shade observ
 1. **Web Worker Offloading**:
    - *Current*: Inference runs via asynchronous WebAssembly promises on the main thread.
    - *Upgrade Path*: Move pipeline execution to a dedicated Web Worker to prevent minor UI stutter on low-end mobile devices during cold initialization.
-2. **Quantized ONNX Weights (`q8`)**:
-   - *Current*: `fp32` ONNX model (~150MB transfer).
-   - *Upgrade Path*: Ship quantized 8-bit weights (~85MB) to reduce initial download time on mobile data.
+2. **Model Precision Trade-offs (`fp32` vs `q8`)**:
+   - *Current*: Explicit `fp32` ONNX model (~606 MB cold download payload, cached conditionally in browser Cache API).
+   - *Trade-off Context*: The 8-bit quantized model (`q8`, ~154 MB) was evaluated during release auditing but rejected because it degraded architectural shade detection, misclassifying storefront awnings and colonnades as direct sun.
+   - *Upgrade Path*: Re-evaluate alternative quantization or model pruning techniques only if future checkpoints preserve architectural shadow discrimination without misclassification.
 3. **EXIF Orientation Normalization**:
    - *Current*: Handled by standard browser HTMLImageElement loading.
    - *Upgrade Path*: Add EXIF tag extraction to preserve compass bearing if users opt in.
+

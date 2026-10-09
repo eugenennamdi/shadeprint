@@ -6,7 +6,7 @@
 
 ---
 
-## 🌿 The Vision
+## The Vision
 
 In hot urban environments, the difference between a tree-shaded sidewalk and an exposed concrete street can define whether a neighborhood feels walkable or punishing. Yet most digital technology pulls our eyes toward glass screens and keeps people indoors.
 
@@ -18,20 +18,21 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - **3-Stop Field Walk Flow**: Minimal screen time. Take a photo, confirm what you observe, put your phone in your pocket, and keep walking.
-- **Client-Side Open-Weight Vision AI**: Runs zero-shot image classification locally using `Xenova/clip-vit-base-patch32` via Hugging Face Transformers.js and ONNX Web Runtime.
+- **Client-Side Open-Weight Vision AI**: Runs zero-shot image classification locally using `Xenova/clip-vit-base-patch32` via Hugging Face Transformers.js (v3.8.1) and ONNX Web Runtime.
+- **Explicit FP32 Precision**: Pipeline explicitly specifies `dtype: 'fp32'` (`model.onnx`, ~606 MB cold download) because 8-bit quantized weights (`q8`, ~154 MB) degraded architectural shade detection.
 - **Human-in-the-Loop Ground Truth**: The AI provides a relative similarity suggestion; the human observer confirms or corrects the ground truth. User overrides are preserved and honored.
 - **100% Privacy by Design**: Zero cloud image uploads, zero analytics trackers, and zero required user accounts or geolocation permissions. All records persist locally in IndexedDB.
-- **Offline Caching (Cache API)**: Once model weights are fetched and stored in the browser Cache API, inference runs locally without re-downloading, subject to browser storage eviction policies.
+- **Conditional Local Caching (Cache API)**: Model weights are stored in the browser Cache API upon initial download. However, caching is conditional: browser storage quotas, device storage pressure, and browser clearing can evict cached weights, requiring a re-download. Offline operation is therefore not guaranteed.
 - **Technical Honesty**: Explicitly avoids misleading microclimate or UV claims. We classify *visible physical shade characteristics*, not ambient temperatures or canopy percentages.
 - **Exportable Field Reports**: Export your synthesized neighborhood walk to PDF / print, or copy a clean plain-text log.
 - **Sample Demonstration Mode**: Includes bundled photographic reference test imagery so evaluators and judges can test the full AI inference pipeline immediately without going outside first.
 
 ---
 
-## 🧠 Open-Weight Model Architecture
+## Open-Weight Model Architecture
 
 | Property | Details |
 | :--- | :--- |
@@ -40,8 +41,8 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 | **Runtime** | `@huggingface/transformers` v3.8.1 + ONNX Web Runtime (WASM SIMD) |
 | **Task** | Zero-shot image classification |
 | **Execution** | 100% Client-side (in-browser WebAssembly) |
-| **Model License** | Apache 2.0 (Open Weights) |
-| **Weight Size** | ~606 MB (`onnx/model.onnx` explicitly configured with `dtype: 'fp32'`; cached in browser Cache API) |
+| **Model License** | MIT License (OpenAI CLIP base model) / Apache-2.0 (Transformers.js runtime) |
+| **Weight Size** | ~606 MB (`onnx/model.onnx` explicitly configured with `dtype: 'fp32'`; vs ~154 MB `q8` which degraded architectural shade) |
 | **Inference Latency** | ~140 ms verified on Apple Silicon M-series desktop CPU; mobile device latency is unverified and hardware-dependent |
 
 ### Candidate Classification Prompts
@@ -52,7 +53,7 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 
 ---
 
-## 🔒 Privacy Model
+## Privacy Model
 
 - **No Remote Image Uploads**: Photographs never leave your device. All pixels are read via HTML Canvas and processed directly by the WebAssembly ONNX runtime.
 - **No Remote AI APIs**: No OpenAI, Anthropic, or proprietary vision APIs. No API keys required.
@@ -61,16 +62,16 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 
 ---
 
-## ⚠️ Technical Limitations & Honesty
+## Technical Limitations & Honesty
 
 - **Visual vs. Thermal**: A photograph records visible light and shadows, not thermodynamic metrics. Shadeprint does not claim to measure ambient temperature, radiant surface heat, or UV index.
 - **Lighting Conditions**: Twilight, heavy overcast conditions, or night walks cannot be reliably classified by visual shade models.
-- **Relative Scores**: CLIP similarity scores are relative contrastive similarities, not calibrated probabilities. When top candidate scores are close (< 10% delta), Shadeprint flags relative uncertainty.
-- **Synthetic Test Benchmark**: Evaluation fixtures in this repository are project-synthesized photographic references. They verify pipeline execution and document specific edge cases (such as flat overcast diffuse light), but do not constitute an empirical real-world field trial across diverse global geographies.
+- **Relative Scores**: Model scores reflect normalized relative contrastive similarity across candidate text prompts, not calibrated statistical probabilities, physical canopy percentage, or measured classification accuracy. When candidate scores are close (< 10% delta), Shadeprint flags uncertainty.
+- **Synthetic Test Benchmark vs. Real-World Field Walks**: Evaluation fixtures in this repository are synthetic photographic references used for pipeline execution checks and precision comparisons during development. They do not constitute an empirical global accuracy study. Real-world outdoor field walks involve variable lighting, solar angles, and device cameras where the human observer serves as the sole ground-truth arbiter.
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js 18+ (tested on Node v24)
@@ -103,18 +104,19 @@ The compiled static assets are output to `dist/`, ready for zero-config static h
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - **Framework**: Vite + React 19 + TypeScript (strict mode)
 - **Styling**: Tailwind CSS + custom environmental palette
 - **Icons**: Lucide React
-- **AI / Vision**: `@huggingface/transformers`
+- **AI / Vision**: `@huggingface/transformers` v3.8.1 (WASM SIMD)
 - **Storage**: Native Browser `IndexedDB`
 - **Testing**: Vitest
 
 ---
 
-## 📄 License & Attribution
+## License & Attribution
 
 - **Shadeprint Application**: [MIT License](LICENSE)
-- **CLIP Vision Model**: [OpenAI CLIP / Xenova](https://huggingface.co/Xenova/clip-vit-base-patch32) under Apache 2.0 license.
+- **CLIP Vision Model**: [OpenAI CLIP](https://github.com/openai/CLIP) (MIT License), ported to ONNX for [Transformers.js](https://huggingface.co/Xenova/clip-vit-base-patch32) by Xenova (Apache-2.0 runtime). Refer to upstream model cards for detailed terms.
+

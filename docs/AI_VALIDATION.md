@@ -11,13 +11,13 @@ This document records the empirical validation benchmarks, configuration paramet
 | **Model Repository** | [`Xenova/clip-vit-base-patch32`](https://huggingface.co/Xenova/clip-vit-base-patch32) |
 | **Original Architecture** | OpenAI Contrastive Language-Image Pre-Training (ViT-B/32) |
 | **ONNX Export Provider** | Hugging Face Xenova Hub |
-| **Library Version** | `@huggingface/transformers` v3.8.1 (resolved from `^3.3.3`) |
+| **Library Version** | `@huggingface/transformers` v3.8.1 |
 | **Inference Backend** | ONNX Runtime (WASM SIMD in-browser / Node.js native runtime for tests) |
 | **Explicit Precision** | `fp32` (explicitly set via `{ dtype: 'fp32' }`) |
 | **Active ONNX Artifact** | `onnx/model.onnx` (605,799,029 bytes / ~605.8 MB decimal / 577.7 MiB binary) |
 | **Total Cold Payload** | ~608 MB (model + tokenizer + configs) |
 | **Task Pipeline** | `zero-shot-image-classification` |
-| **Model License** | Apache 2.0 |
+| **Model License** | MIT License (OpenAI CLIP base model) / Apache-2.0 (Transformers.js runtime) |
 
 ---
 
@@ -38,8 +38,8 @@ During the release audit, we uncovered why previous reports reported different b
 4. **Resolution**: 8-bit quantization damages the spatial contrast features needed to differentiate architectural shadow from open pavement, breaking the "Built Shade" category. We have therefore **explicitly configured `{ dtype: 'fp32' }` in `classifier.ts`**, aligning browser production with the verified benchmark artifact.
 
 ### Caching & Mobile Footprint Caveats
-- **Cold Download**: The unquantized FP32 model transfers ~606 MB over the network on initial load. Users are advised to initialize the app over Wi-Fi.
-- **Cache API Persistence**: Browser caching uses the native Cache API (`transformers-cache`). While cached assets avoid subsequent downloads under normal conditions, the browser may evict cached data under device storage pressure or manual browser data clearing.
+- **Cold Download**: The unquantized FP32 model transfers ~606 MB over the network on initial load (compared to ~154 MB for Q8). Users are advised to initialize the app over Wi-Fi.
+- **Cache API Persistence is Conditional**: Browser caching uses the native Cache API (`transformers-cache`). However, browser caching is strictly conditional and ephemeral: device storage pressure, browser storage quotas, or user browser data clearing can evict cached model weights without warning. Permanent caching, instant loading, and guaranteed offline operation are therefore not supported.
 - **Inference Latency**: Latency of ~140 ms per 800px photo was measured on Apple Silicon M-series desktop hardware. Physical mobile performance is unverified and depends heavily on individual smartphone RAM, thermal throttling, and chipset capabilities.
 
 ---
@@ -51,7 +51,7 @@ In the zero-shot image classification pipeline, raw image and text embeddings pr
 $$p_i = \frac{e^{100 \cdot \cos(\mathbf{v}_{img}, \mathbf{w}_i)}}{\sum_{j=1}^N e^{100 \cdot \cos(\mathbf{v}_{img}, \mathbf{w}_j)}}$$
 
 ### Critical Semantics
-1. **Relative, Not Absolute**: Scores sum to 100% across the 3 supplied candidate prompts. They reflect relative contrastive match, **not calibrated statistical confidence** or physical percentage of shade canopy.
+1. **Relative, Not Absolute**: Scores sum to 100% across the 3 supplied candidate prompts. They reflect relative contrastive candidate matches, **not calibrated statistical probabilities, physical shade canopy percentages, or measured classification accuracy**.
 2. **UI Presentation**: The UI labels scores as **"Relative Candidate Match"** with explicit disclaimers preventing misinterpretation as microclimate measurements.
 3. **Heuristic Uncertainty Signals**:
    - Random chance baseline for 3 candidates is $33.3\%$.
@@ -93,10 +93,11 @@ We evaluated the production `fp32` CLIP pipeline across 12 distinct physical sce
 
 ### Why This Benchmark Does Not Establish General Model Accuracy
 A 12-image local test suite provides an engineering smoke test and qualitative boundary check, but **cannot and does not establish general real-world accuracy**:
-1. **Sample Size**: Twelve images cannot capture the vast distribution of urban pedestrian environments worldwide.
+1. **Sample Size & Synthesis**: Twelve synthetic photographic references cannot capture the vast distribution of urban pedestrian environments worldwide.
 2. **Solar & Atmospheric Variance**: Sun angles change drastically across latitude, time of day, and season. Overcast, foggy, or twilight conditions break simple solar shadow assumptions.
 3. **Camera Sensor Processing**: Smartphone HDR, automatic white balance, and contrast sharpening alter shadow depth.
-4. **Conclusion**: This benchmark proves the ONNX pipeline correctly executes zero-shot vision inference locally, but reinforces Shadeprint's fundamental design thesis: **AI suggestion is only an initial hint; the human observer remains the sole reliable ground-truth arbiter.**
+4. **Synthetic Benchmark vs. Real-World Field Walks**: This synthetic benchmark was used during development to diagnose model precision trade-offs (specifically Q8 vs. FP32). It is distinct from real-world outdoor field observations (such as human validation walks in Port Harcourt, Nigeria), where live dynamic environments and camera hardware require the human observer to act as the sole reliable ground-truth arbiter.
+5. **Conclusion**: This benchmark proves the ONNX pipeline correctly executes zero-shot vision inference locally, but reinforces Shadeprint's fundamental design thesis: **AI suggestion is only an initial hint; the human observer remains the sole reliable ground-truth arbiter.**
 
 ---
 
