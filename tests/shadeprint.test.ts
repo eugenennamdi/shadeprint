@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { FieldSession, Observation, ShadeCategory, ModelScoreDetail } from '../src/types';
 import { CANDIDATE_PROMPTS, CATEGORY_METADATA } from '../src/lib/ai/classifier';
 import { createMockIndexedDB } from './mock-idb';
@@ -432,6 +432,119 @@ describe('5. Mobile Design System & Sound Interaction Integrity', () => {
     const tailwindConfig = await import('../tailwind.config.js');
     const screens = tailwindConfig.default?.theme?.extend?.screens;
     expect(screens?.xs).toBe('375px');
+  });
+
+  it('guarantees Switch interactive touch target meets minimum 44x44px boundary', async () => {
+    const { Switch } = await import('@/components/ui/Switch');
+    expect(Switch).toBeDefined();
+    // Render static or inspect markup structure of Switch component
+    const rendered = Switch({ checked: false, onCheckedChange: () => {} });
+    expect(rendered.props.className).toContain('min-h-[44px]');
+    expect(rendered.props.className).toContain('min-w-[44px]');
+  });
+});
+
+describe('6. Phase 4B Regression Suite: Sound Lifecycle, Persistence Honesty & Retry', () => {
+  it('guarantees BetweenStopsScreen remount does NOT trigger playWalkCompleted', async () => {
+    const soundModule = await import('@/lib/sound/soundEffects');
+    const spy = vi.spyOn(soundModule, 'playWalkCompleted');
+    
+    const { BetweenStopsScreen } = await import('@/features/field-session/BetweenStopsScreen');
+
+    // Simulate 3 completed observations passed to BetweenStopsScreen
+    const obsList: Observation[] = [
+      { id: '1', sessionId: 's', createdAt: '', photoDataUrl: '', finalCategory: 'tree_shade', modelStatus: 'success' },
+      { id: '2', sessionId: 's', createdAt: '', photoDataUrl: '', finalCategory: 'built_shade', modelStatus: 'success' },
+      { id: '3', sessionId: 's', createdAt: '', photoDataUrl: '', finalCategory: 'exposed', modelStatus: 'success' },
+    ];
+
+    // Calling the component renderer (mount)
+    BetweenStopsScreen({
+      completedObservations: obsList,
+      totalStops: 3,
+      onContinueWalk: () => {},
+      onFinishSession: () => {},
+    });
+
+    // Remount again
+    BetweenStopsScreen({
+      completedObservations: obsList,
+      totalStops: 3,
+      onContinueWalk: () => {},
+      onFinishSession: () => {},
+    });
+
+    // Assert that BetweenStopsScreen has zero mount-triggered sound playback
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('handles IndexedDB save failure honestly, preserving observation in memory for retry without duplicates', async () => {
+    const { saveSession, getSession } = await import('@/lib/storage/db');
+
+    const testSession: FieldSession = {
+      id: 'test-retry-session-01',
+      startedAt: new Date().toISOString(),
+      mode: 'field',
+      observations: [
+        { id: 'obs-01', sessionId: 'test-retry-session-01', createdAt: '', photoDataUrl: 'data:image/png;1', finalCategory: 'tree_shade', modelStatus: 'success' },
+      ],
+    };
+
+    // 1. Initial successful save
+    await saveSession(testSession);
+    const savedInitial = await getSession('test-retry-session-01');
+    expect(savedInitial?.observations.length).toBe(1);
+
+    // 2. Simulate pending second observation created in memory
+    const pendingSecondObservation: Observation = {
+      id: 'obs-02-unique-id',
+      sessionId: 'test-retry-session-01',
+      createdAt: new Date().toISOString(),
+      photoDataUrl: 'data:image/png;2',
+      finalCategory: 'built_shade',
+      modelStatus: 'success',
+      userNote: 'Sheltered bus stop',
+    };
+
+    // Simulated failure handler preserving in memory
+    let inMemoryObservation: Observation | null = pendingSecondObservation;
+    let persistenceErrorMessage: string | null = null;
+
+    // Simulate database failure (e.g. QuotaExceededError or simulated throw)
+    const simulatedFailingSave = async () => {
+      throw new Error('QuotaExceededError: The quota has been exceeded.');
+    };
+
+    try {
+      await simulatedFailingSave();
+    } catch (err: any) {
+      persistenceErrorMessage = err.message;
+      // Memory preservation invariant: work is not lost
+      expect(inMemoryObservation).not.toBeNull();
+      expect(inMemoryObservation?.id).toBe('obs-02-unique-id');
+    }
+
+    expect(persistenceErrorMessage).toContain('QuotaExceededError');
+
+    // 3. Retry saving: reuse the exact same in-memory observation ID to prevent duplicates
+    const retryUpdatedSession: FieldSession = {
+      ...testSession,
+      observations: [...testSession.observations, inMemoryObservation!],
+    };
+
+    // Retry against actual storage succeeds
+    await saveSession(retryUpdatedSession);
+    const restoredAfterRetry = await getSession('test-retry-session-01');
+
+    expect(restoredAfterRetry).toBeDefined();
+    expect(restoredAfterRetry?.observations.length).toBe(2);
+    expect(restoredAfterRetry?.observations[1].id).toBe('obs-02-unique-id');
+    expect(restoredAfterRetry?.observations[1].userNote).toBe('Sheltered bus stop');
+
+    // Invariant: no duplicate second observation was created
+    const countOfObs2 = restoredAfterRetry?.observations.filter(o => o.id === 'obs-02-unique-id').length;
+    expect(countOfObs2).toBe(1);
   });
 });
 

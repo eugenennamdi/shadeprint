@@ -167,7 +167,7 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
             <span>Field Notebook Disclosure</span>
           </div>
           <p className="leading-relaxed text-xs">
-            Shadeprint evaluates <strong className="text-forest-900">visible physical shade conditions</strong> (tree canopy, structural overhangs, or open sunlight) using the open-weight <code className="bg-paper-200 px-1 py-0.5 rounded text-[11px] font-mono">Xenova/clip-vit-base-patch32</code> model. It does not measure ambient microclimates, thermal comfort, or UV radiation.
+            Shadeprint evaluates <strong className="text-forest-900">visible physical shade conditions</strong> (tree canopy, structural overhangs, or open sunlight) using the open-weight <code className="bg-paper-200 px-1 py-0.5 rounded text-[11px] font-mono break-all sm:break-normal">Xenova/clip-vit-base-patch32</code> model. It does not measure ambient microclimates, thermal comfort, or UV radiation.
           </p>
           <p className="text-[11px] text-stone-muted leading-relaxed">
             First-time launch downloads ~606 MB of unquantized FP32 weights stored in your browser's Cache API for subsequent use (subject to device storage policies). Pre-loading over Wi-Fi is recommended.

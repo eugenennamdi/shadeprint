@@ -100,7 +100,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
         <p className="text-stone-slate leading-relaxed text-xs">
           Zero-shot vision inference runs client-side via Hugging Face Transformers.js and ONNX Web Runtime using unquantized FP32 weights:
         </p>
-        <div className="p-2.5 bg-paper-50 rounded-lg border border-stone-border/70 font-mono text-[11px] text-forest-900 overflow-x-auto">
+        <div className="p-2.5 bg-paper-50 rounded-lg border border-stone-border/70 font-mono text-[11px] text-forest-900 break-all sm:break-normal">
           Xenova/clip-vit-base-patch32 (FP32)
         </div>
         <p className="text-stone-muted text-[11px] leading-relaxed">

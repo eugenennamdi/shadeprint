@@ -19,6 +19,7 @@ import {
   clearAllData 
 } from '@/lib/storage/db';
 import { SAMPLE_STOPS } from '@/lib/sampleData';
+import { playObservationConfirmed, playWalkCompleted } from '@/lib/sound/soundEffects';
 
 type ScreenState = 'intro' | 'capture' | 'review' | 'between' | 'report';
 
@@ -36,6 +37,11 @@ export function App() {
 
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [inProgressSession, setInProgressSession] = useState<FieldSession | null>(null);
+
+  // Persistence failure recovery states
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [isSavingObservation, setIsSavingObservation] = useState(false);
+  const [pendingObservation, setPendingObservation] = useState<Observation | null>(null);
 
   // Load saved sessions from IndexedDB on startup
   useEffect(() => {
@@ -60,6 +66,8 @@ export function App() {
 
   // Start real neighborhood walk
   const handleStartWalk = () => {
+    setPersistenceError(null);
+    setPendingObservation(null);
     const newSession: FieldSession = {
       id: `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       startedAt: new Date().toISOString(),
@@ -74,6 +82,8 @@ export function App() {
 
   // Start sample mode demonstration
   const handleStartSample = () => {
+    setPersistenceError(null);
+    setPendingObservation(null);
     const newSession: FieldSession = {
       id: `sample-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       startedAt: new Date().toISOString(),
@@ -88,6 +98,8 @@ export function App() {
 
   // When photo is chosen on Capture Screen
   const handlePhotoSelected = (photoDataUrl: string, locationLabel?: string) => {
+    setPersistenceError(null);
+    setPendingObservation(null);
     setPendingPhoto({ dataUrl: photoDataUrl, locationLabel });
     setCurrentScreen('review');
   };
@@ -99,22 +111,31 @@ export function App() {
     scores?: ModelScoreDetail[],
     userNote?: string
   ) => {
-    if (!activeSession || !pendingPhoto) return;
+    if (!activeSession || !pendingPhoto || isSavingObservation) return;
 
-    const newObservation: Observation = {
-      id: `obs-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      sessionId: activeSession.id,
-      createdAt: new Date().toISOString(),
-      photoDataUrl: pendingPhoto.dataUrl,
-      locationLabel: pendingPhoto.locationLabel,
-      aiSuggestedCategory,
-      modelScoreDetails: scores,
-      finalCategory,
-      modelStatus: scores && scores.length > 0 ? 'success' : 'bypassed',
-      userNote,
-    };
+    // Preserve existing observation id if retrying after failure to prevent duplicate creation
+    const observationToSave: Observation = pendingObservation
+      ? {
+          ...pendingObservation,
+          finalCategory,
+          aiSuggestedCategory,
+          modelScoreDetails: scores,
+          userNote,
+        }
+      : {
+          id: `obs-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          sessionId: activeSession.id,
+          createdAt: new Date().toISOString(),
+          photoDataUrl: pendingPhoto.dataUrl,
+          locationLabel: pendingPhoto.locationLabel,
+          aiSuggestedCategory,
+          modelScoreDetails: scores,
+          finalCategory,
+          modelStatus: scores && scores.length > 0 ? 'success' : 'bypassed',
+          userNote,
+        };
 
-    const updatedObservations = [...activeSession.observations, newObservation];
+    const updatedObservations = [...activeSession.observations, observationToSave];
     const isFinished = updatedObservations.length >= 3;
 
     const updatedSession: FieldSession = {
@@ -123,8 +144,8 @@ export function App() {
       completedAt: isFinished ? new Date().toISOString() : undefined,
     };
 
-    setActiveSession(updatedSession);
-    setPendingPhoto(null);
+    setIsSavingObservation(true);
+    setPersistenceError(null);
 
     // Persist to IndexedDB
     try {
@@ -132,12 +153,44 @@ export function App() {
       const all = await getAllSessions();
       all.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
       setPastSessions(all);
-    } catch (err) {
-      console.error('Failed to save session to IndexedDB:', err);
-    }
 
-    // Advance to between stops screen
-    setCurrentScreen('between');
+      // Successfully saved - commit state
+      setActiveSession(updatedSession);
+      setPendingPhoto(null);
+      setPendingObservation(null);
+      setPersistenceError(null);
+      setIsSavingObservation(false);
+
+      // Trigger completion sound only after genuine 3rd observation confirmed & persisted
+      if (isFinished) {
+        playWalkCompleted();
+      } else {
+        playObservationConfirmed();
+      }
+
+      // Advance to between stops screen
+      setCurrentScreen('between');
+    } catch (err: any) {
+      console.error('Failed to save session to IndexedDB:', err);
+      // Retain observation and photo in memory so user does not lose their work
+      setPendingObservation(observationToSave);
+      setIsSavingObservation(false);
+      setPersistenceError(
+        err?.message || 'Could not save observation to browser storage (quota exceeded or storage restricted). Your observation is held safely in memory.'
+      );
+      // DO NOT advance to between screen. Stay on review screen.
+    }
+  };
+
+  // Retry saving the failed observation
+  const handleRetrySaveObservation = async () => {
+    if (!activeSession || !pendingPhoto || !pendingObservation || isSavingObservation) return;
+    await handleConfirmObservation(
+      pendingObservation.finalCategory,
+      pendingObservation.aiSuggestedCategory,
+      pendingObservation.modelScoreDetails,
+      pendingObservation.userNote
+    );
   };
 
   // Continue to next stop
@@ -186,6 +239,8 @@ export function App() {
     if (window.confirm('Reset this field session and return to the beginning?')) {
       setActiveSession(null);
       setPendingPhoto(null);
+      setPendingObservation(null);
+      setPersistenceError(null);
       setCurrentStopIndex(0);
       setCurrentScreen('intro');
     }
@@ -265,7 +320,14 @@ export function App() {
             photoDataUrl={pendingPhoto.dataUrl}
             locationLabel={pendingPhoto.locationLabel}
             onConfirmObservation={handleConfirmObservation}
-            onRetake={() => setCurrentScreen('capture')}
+            onRetake={() => {
+              setPersistenceError(null);
+              setPendingObservation(null);
+              setCurrentScreen('capture');
+            }}
+            persistenceError={persistenceError}
+            onRetrySave={handleRetrySaveObservation}
+            isSaving={isSavingObservation}
           />
         )}
 

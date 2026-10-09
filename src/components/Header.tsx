@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onReset}
-              className="text-xs text-stone-slate hover:text-stone-charcoal flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-paper-200 active:bg-paper-300 transition-colors min-h-[38px] select-none touch-manipulation"
+              className="text-xs text-stone-slate hover:text-stone-charcoal flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg hover:bg-paper-200 active:bg-paper-300 transition-colors min-h-[44px] min-w-[44px] select-none touch-manipulation cursor-pointer"
               title="Reset current walk"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenAbout}
-              className="text-xs font-medium text-forest-800 hover:text-forest-900 bg-forest-100/70 hover:bg-forest-100 border border-forest-600/20 active:bg-forest-200 flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors min-h-[38px] select-none touch-manipulation shadow-2xs"
+              className="text-xs font-medium text-forest-800 hover:text-forest-900 bg-forest-100/70 hover:bg-forest-100 border border-forest-600/20 active:bg-forest-200 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] select-none touch-manipulation shadow-2xs cursor-pointer"
               title="About Shadeprint and Privacy"
             >
               <Info className="w-3.5 h-3.5" />

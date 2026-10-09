@@ -12,7 +12,6 @@
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
-    overflow-x: clip;
   }
 
   body {
@@ -23,7 +22,6 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     overscroll-behavior-y: none;
-    overflow-x: clip;
   }
 
   ::selection {

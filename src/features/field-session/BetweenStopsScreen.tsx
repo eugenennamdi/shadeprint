@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { Observation } from '@/types';
 import { CATEGORY_METADATA } from '@/lib/ai/classifier';
@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   Sparkles
 } from 'lucide-react';
-import { playTick, playWalkCompleted } from '@/lib/sound/soundEffects';
+import { playTick } from '@/lib/sound/soundEffects';
 
 interface BetweenStopsScreenProps {
   completedObservations: Observation[];
@@ -25,13 +25,6 @@ export const BetweenStopsScreen: React.FC<BetweenStopsScreenProps> = ({
 }) => {
   const currentCount = completedObservations.length;
   const isComplete = currentCount >= totalStops;
-
-  // Play completion acoustic chord when reaching all 3 stops
-  useEffect(() => {
-    if (isComplete) {
-      playWalkCompleted();
-    }
-  }, [isComplete]);
 
   return (
     <div className="flex-1 max-w-xl mx-auto w-full px-4 py-6 sm:py-10 flex flex-col justify-between text-center">

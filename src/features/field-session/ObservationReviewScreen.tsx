@@ -25,7 +25,7 @@ import {
   Cpu,
   Download
 } from 'lucide-react';
-import { playTick, playObservationConfirmed } from '@/lib/sound/soundEffects';
+import { playTick } from '@/lib/sound/soundEffects';
 
 interface ObservationReviewScreenProps {
   currentStopIndex: number;
@@ -39,6 +39,9 @@ interface ObservationReviewScreenProps {
     userNote?: string
   ) => void;
   onRetake: () => void;
+  persistenceError?: string | null;
+  onRetrySave?: () => void;
+  isSaving?: boolean;
 }
 
 export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = ({
@@ -48,6 +51,9 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
   locationLabel,
   onConfirmObservation,
   onRetake,
+  persistenceError,
+  onRetrySave,
+  isSaving,
 }) => {
   const [modelStatus, setModelStatus] = useState<ModelStatus>('idle');
   const [downloadProgress, setDownloadProgress] = useState<ModelDownloadProgress | null>(null);
@@ -108,8 +114,7 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
   }, [photoDataUrl]);
 
   const handleConfirm = () => {
-    if (modelStatus === 'analyzing' || modelStatus === 'loading_weights') return;
-    playObservationConfirmed();
+    if (modelStatus === 'analyzing' || modelStatus === 'loading_weights' || isSaving) return;
     onConfirmObservation(
       selectedCategory,
       aiSuggestedCategory,
@@ -225,6 +230,35 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
                 You can still classify this observation manually below.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Persistence Failure Banner */}
+        {persistenceError && (
+          <div className="mb-4 p-3.5 sm:p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 flex flex-col sm:flex-row items-start justify-between gap-3 animate-fade-in shadow-2xs">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-xs sm:text-sm">Storage Save Failed</p>
+                <p className="text-[11px] mt-0.5 leading-relaxed text-red-800">
+                  {persistenceError}
+                </p>
+                <p className="text-[11px] mt-1 text-stone-muted">
+                  Your observation is preserved in memory. You can retry saving now.
+                </p>
+              </div>
+            </div>
+            {onRetrySave && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onRetrySave}
+                isLoading={isSaving}
+                className="shrink-0 text-red-900 border-red-300 hover:bg-red-100 min-h-[44px] min-w-[100px] font-semibold"
+              >
+                Retry save
+              </Button>
+            )}
           </div>
         )}
 
@@ -410,11 +444,12 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
         <Button
           variant="primary"
           size="md"
-          onClick={handleConfirm}
+          onClick={persistenceError && onRetrySave ? onRetrySave : handleConfirm}
           disabled={modelStatus === 'analyzing' || modelStatus === 'loading_weights'}
+          isLoading={isSaving}
           className="flex items-center gap-2 shadow-sm font-semibold"
         >
-          <span>Confirm observation</span>
+          <span>{persistenceError ? 'Retry saving' : 'Confirm observation'}</span>
           <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
