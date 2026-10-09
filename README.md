@@ -41,7 +41,7 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 | **Task** | Zero-shot image classification |
 | **Execution** | 100% Client-side (in-browser WebAssembly) |
 | **Model License** | Apache 2.0 (Open Weights) |
-| **Weight Size** | ~150 MB (cached in browser Cache API on first run) |
+| **Weight Size** | ~606 MB (unquantized FP32 ONNX weights; one-time cold download, cached permanently in browser Cache API; subsequent visits transfer 0 bytes) |
 | **Inference Latency** | ~150 ms – 300 ms on modern mobile / desktop CPU |
 
 ### Candidate Classification Prompts
@@ -78,7 +78,7 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 ### Installation & Local Run
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/shadeprint.git
+git clone https://github.com/eugenennamdi/shadeprint.git
 cd shadeprint
 
 # Install dependencies

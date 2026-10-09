@@ -45,7 +45,7 @@ In hot urban environments, the difference between a tree-shaded canopy sidewalk 
 
 ## Code
 
-- **GitHub Repository**: [INSERT_GITHUB_REPO_URL_HERE]
+- **GitHub Repository**: [https://github.com/eugenennamdi/shadeprint](https://github.com/eugenennamdi/shadeprint)
 - **License**: MIT License
 - **Open-Weight Model**: [`Xenova/clip-vit-base-patch32`](https://huggingface.co/Xenova/clip-vit-base-patch32) (Apache 2.0)
 
@@ -73,7 +73,7 @@ const result = await classifier(imageDataUrl, [
 ]);
 ```
 
-Once downloaded on first load, the ~150MB ONNX model weights are cached in the browser's native **Cache API**, enabling rapid sub-300ms inference completely offline.
+Once downloaded on first load, the ~606MB unquantized FP32 ONNX model weights are cached in the browser's native **Cache API**, enabling rapid sub-300ms inference completely offline with zero subsequent network requests.
 
 ### 2. Technical Honesty & Uncertainty Guardrails
 A photograph cannot measure thermodynamic microclimates, ambient air temperature, or UV index. Shadeprint never pretends to do so:

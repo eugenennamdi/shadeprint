@@ -14,19 +14,27 @@ This document records the empirical validation benchmarks, configuration paramet
 | **Library Version** | `@huggingface/transformers` v3.3.3 |
 | **Inference Backend** | ONNX Runtime (WASM SIMD in-browser / Node.js native runtime for tests) |
 | **Data Type** | `fp32` (default precision) |
-| **Total ONNX Model Size** | 577.7 MB uncompressed ONNX; ~150 MB network transfer |
+| **Total ONNX Model Size** | 605.8 MB (577.7 MiB) uncompressed ONNX; ~606 MB cold network download |
 | **Task Pipeline** | `zero-shot-image-classification` |
 | **Model License** | Apache 2.0 |
 
 ---
 
-## 2. Quantization Audit (`fp32` vs `q8`)
+## 2. Model Size & Quantization Audit (`fp32` vs `q8`)
 
-As part of the cold-download audit, we empirically tested loading 8-bit quantized weights (`onnx/model_quantized.onnx`, 146.6 MB):
-- **Transfer Size**: Reduced by 74.6% (146 MB vs 578 MB).
+### Network Transfer & Caching Reality
+- **Exact Active Artifact**: `onnx/model.onnx` (FP32).
+- **Exact File Size**: 605,799,029 bytes (~605.8 MB decimal / 577.7 MiB binary).
+- **Ancillary Files**: `tokenizer.json` (2.2 MB), `config.json` (4.5 KB), `tokenizer_config.json` (775 B), `preprocessor_config.json` (520 B). Total initial payload: ~608 MB.
+- **Resolution of Previous Size Discrepancy**: A previous report claimed "~150 MB network transfer" for FP32. That figure was an error caused by conflating the file size of the 8-bit quantized model (`model_quantized.onnx`, 153.7 MB / 146.6 MiB) with an assumed gzip-compressed stream of the FP32 model. In reality, Hugging Face Hub serves ONNX files as raw binary octet-streams without 75% on-the-fly compression. Cold download transfers the full ~606 MB.
+- **Client-Side Caching**: `env.useBrowserCache = true` persists the model in the browser's native **Cache API** (`transformers-cache`). Once downloaded, subsequent visits and app restarts require **0 bytes** of network transfer.
+
+### Quantization Tradeoff Analysis
+As part of the cold-download audit, we empirically tested loading 8-bit quantized weights (`onnx/model_quantized.onnx`, 153.7 MB / 146.6 MiB):
+- **Transfer Size**: Reduced by 74.6% (153.7 MB vs 605.8 MB).
 - **Inference Latency**: 188 ms.
 - **Accuracy Finding**: On `./public/samples/sample_built_shade.jpg`, the `q8` quantized model misclassified architectural awning shade as exposed sunlight (`59.3%` exposed), whereas the `fp32` model decisively and correctly classified it as built shade (`92.3%` built shade).
-- **Engineering Decision**: In accordance with the project rule (*a verified working model is better than an untested optimization*), the `fp32` model is maintained as the default production standard to prevent classification degradation.
+- **Engineering Decision**: In accordance with the project rule (*a verified working model is better than an untested optimization*), the `fp32` model is maintained as the production standard to prevent classification degradation.
 
 ---
 
@@ -66,12 +74,23 @@ We evaluated the production `fp32` CLIP pipeline across 12 distinct physical sce
 | **T11** | Wilderness (No Walkway) | `no_walkway_forest.jpg` | `tree_shade` | `tree_shade` | 99.6% | 0.3% | +99.3% | 150 ms | **PASS** |
 | **T12** | Parking Lot (No Walkway) | `no_walkway_parking_lot.jpg` | `exposed` | `exposed` | 78.2% | 21.4% | +56.8% | 146 ms | **PASS** |
 
-### Benchmark Summary
-- **Clear Physical Categories**: 10 out of 10 correct (**100% accuracy**).
-- **Average Inference Latency**: **141.5 ms** per image on Apple Silicon CPU.
-- **Observed Edge Cases & Model Blind Spots**:
-  1. *Overcast diffuse lighting (T10)*: Under cloud cover, flat diffuse lighting eliminates shadows. In the absence of bright sunlight, CLIP misinterprets gloomy architectural walls as built shade.
-  2. *Mixed sapling light (T09)*: Dappled saplings split the scores across all three categories (54.5% tree, 24.4% built, 21.1% exposed), demonstrating the absolute necessity of human ground-truth confirmation.
+### Benchmark Summary & Qualification of Results
+- **Unambiguous Single-Category Scenes (10 of 12 images)**: 10 out of 10 matched the expected category (**100% on definitive subset**).
+  - *Tree Canopy*: T01 (Dense canopy), T02 (Tropical palms), T03 (Suburban street canopy), T11 (Forest path).
+  - *Architectural Shade*: T04 (Fabric awning), T05 (Stone colonnade), T06 (Skyscraper shadow).
+  - *Direct Sunlight*: T07 (Open plaza), T08 (Sunny crosswalk), T12 (Open asphalt lot).
+- **Ambiguous Edge Cases & Failure Modes (2 of 12 images)**:
+  - **T09 (Mixed Dappled Light)**: Sparse saplings casting fragmented shadow patches over bright pavement. The CLIP model leaned toward `tree_shade` (54.5%), but split scores substantially across built shade (24.4%) and exposed sun (21.1%). This is inherently a mixed state; treating it as a simple binary pass/fail is scientifically unsound.
+  - **T10 (Overcast Flat Diffuse Light)**: Rainy overcast day with diffuse lighting and no cast shadows or direct sun. CLIP predicted `built_shade` (88.0%) because the absence of bright solar highlights penalized the "open sunny walkway" candidate prompt, grouping dark wet asphalt closer to architectural shadow.
+- **Overall Suite Score**: **10 / 12 (83.3%)** when evaluated across all test cases including edge cases.
+- **Average Inference Latency**: **141.5 ms** per image on Apple Silicon CPU (WebAssembly SIMD).
+
+### Why This Benchmark Does Not Establish General Model Accuracy
+A 12-image local test suite provides an engineering smoke test and qualitative boundary check, but **cannot and does not establish general real-world accuracy**:
+1. **Sample Size**: Twelve images cannot capture the vast distribution of urban pedestrian environments worldwide.
+2. **Solar & Atmospheric Variance**: Sun angles change drastically across latitude, time of day, and season. Overcast, foggy, or twilight conditions break simple solar shadow assumptions.
+3. **Camera Sensor Processing**: Smartphone HDR, automatic white balance, and contrast sharpening alter shadow depth.
+4. **Conclusion**: This benchmark proves the ONNX pipeline correctly executes zero-shot vision inference locally, but reinforces Shadeprint's fundamental design thesis: **AI suggestion is only an initial hint; the human observer remains the sole reliable ground-truth arbiter.**
 
 ---
 
