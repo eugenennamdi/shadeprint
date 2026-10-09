@@ -73,7 +73,7 @@ const result = await classifier(imageDataUrl, [
 ]);
 ```
 
-Once downloaded on first load, the ~606MB unquantized FP32 ONNX model weights are cached in the browser's native **Cache API**, enabling rapid sub-300ms inference completely offline with zero subsequent network requests.
+Once downloaded on initial use, the ~606MB unquantized FP32 ONNX model weights (`model.onnx`, explicitly configured with `dtype: 'fp32'`) are cached in the browser's native **Cache API**, enabling local on-device inference without repeating the network transfer (subject to device storage policies).
 
 ### 2. Technical Honesty & Uncertainty Guardrails
 A photograph cannot measure thermodynamic microclimates, ambient air temperature, or UV index. Shadeprint never pretends to do so:

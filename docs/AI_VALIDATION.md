@@ -11,30 +11,36 @@ This document records the empirical validation benchmarks, configuration paramet
 | **Model Repository** | [`Xenova/clip-vit-base-patch32`](https://huggingface.co/Xenova/clip-vit-base-patch32) |
 | **Original Architecture** | OpenAI Contrastive Language-Image Pre-Training (ViT-B/32) |
 | **ONNX Export Provider** | Hugging Face Xenova Hub |
-| **Library Version** | `@huggingface/transformers` v3.3.3 |
+| **Library Version** | `@huggingface/transformers` v3.8.1 (resolved from `^3.3.3`) |
 | **Inference Backend** | ONNX Runtime (WASM SIMD in-browser / Node.js native runtime for tests) |
-| **Data Type** | `fp32` (default precision) |
-| **Total ONNX Model Size** | 605.8 MB (577.7 MiB) uncompressed ONNX; ~606 MB cold network download |
+| **Explicit Precision** | `fp32` (explicitly set via `{ dtype: 'fp32' }`) |
+| **Active ONNX Artifact** | `onnx/model.onnx` (605,799,029 bytes / ~605.8 MB decimal / 577.7 MiB binary) |
+| **Total Cold Payload** | ~608 MB (model + tokenizer + configs) |
 | **Task Pipeline** | `zero-shot-image-classification` |
 | **Model License** | Apache 2.0 |
 
 ---
 
-## 2. Model Size & Quantization Audit (`fp32` vs `q8`)
+## 2. Model Precision & Quantization Audit (`fp32` vs `q8`)
 
-### Network Transfer & Caching Reality
-- **Exact Active Artifact**: `onnx/model.onnx` (FP32).
-- **Exact File Size**: 605,799,029 bytes (~605.8 MB decimal / 577.7 MiB binary).
-- **Ancillary Files**: `tokenizer.json` (2.2 MB), `config.json` (4.5 KB), `tokenizer_config.json` (775 B), `preprocessor_config.json` (520 B). Total initial payload: ~608 MB.
-- **Resolution of Previous Size Discrepancy**: A previous report claimed "~150 MB network transfer" for FP32. That figure was an error caused by conflating the file size of the 8-bit quantized model (`model_quantized.onnx`, 153.7 MB / 146.6 MiB) with an assumed gzip-compressed stream of the FP32 model. In reality, Hugging Face Hub serves ONNX files as raw binary octet-streams without 75% on-the-fly compression. Cold download transfers the full ~606 MB.
-- **Client-Side Caching**: `env.useBrowserCache = true` persists the model in the browser's native **Cache API** (`transformers-cache`). Once downloaded, subsequent visits and app restarts require **0 bytes** of network transfer.
+### The Runtime Precision Discovery
+During the release audit, we uncovered why previous reports reported different behavior between Node.js and browser environments:
+1. **Device-Specific Defaults in Transformers.js**: In `@huggingface/transformers` v3.8.1 (`src/utils/dtypes.js`), the library defines:
+   ```javascript
+   DEFAULT_DEVICE_DTYPE_MAPPING: { wasm: 'q8' }
+   ```
+2. **The Discrepancy**: When `dtype` was omitted in `pipeline()`, browser execution on WebAssembly (`selectedDevice = 'wasm'`) automatically defaulted to `q8` (`model_quantized.onnx`, 153.7 MB). Conversely, Node.js CLI execution ran on `selectedDevice = 'cpu'`, which had no device mapping and fell back to `fp32` (`model.onnx`, 605.8 MB).
+3. **Empirical Side-by-Side Comparison**: We ran identical evaluations of `q8` vs `fp32` across all test fixtures:
+   - **T04 (Storefront Awning)**: `q8` predicted **`exposed (59.3%)`** (FAIL). `fp32` predicted **`built_shade (92.3%)`** (PASS).
+   - **T05 (Stone Colonnade)**: `q8` predicted **`exposed (45.4%)`** (FAIL). `fp32` predicted **`built_shade (93.3%)`** (PASS).
+   - **S02 (Sample Built Shade)**: `q8` predicted **`exposed (59.3%)`** (FAIL). `fp32` predicted **`built_shade (92.3%)`** (PASS).
+   - **Canopy & Sun Scenes**: Both `q8` and `fp32` classified dense trees (>90%) and open sun (>60%) reliably.
+4. **Resolution**: 8-bit quantization damages the spatial contrast features needed to differentiate architectural shadow from open pavement, breaking the "Built Shade" category. We have therefore **explicitly configured `{ dtype: 'fp32' }` in `classifier.ts`**, aligning browser production with the verified benchmark artifact.
 
-### Quantization Tradeoff Analysis
-As part of the cold-download audit, we empirically tested loading 8-bit quantized weights (`onnx/model_quantized.onnx`, 153.7 MB / 146.6 MiB):
-- **Transfer Size**: Reduced by 74.6% (153.7 MB vs 605.8 MB).
-- **Inference Latency**: 188 ms.
-- **Accuracy Finding**: On `./public/samples/sample_built_shade.jpg`, the `q8` quantized model misclassified architectural awning shade as exposed sunlight (`59.3%` exposed), whereas the `fp32` model decisively and correctly classified it as built shade (`92.3%` built shade).
-- **Engineering Decision**: In accordance with the project rule (*a verified working model is better than an untested optimization*), the `fp32` model is maintained as the production standard to prevent classification degradation.
+### Caching & Mobile Footprint Caveats
+- **Cold Download**: The unquantized FP32 model transfers ~606 MB over the network on initial load. Users are advised to initialize the app over Wi-Fi.
+- **Cache API Persistence**: Browser caching uses the native Cache API (`transformers-cache`). While cached assets avoid subsequent downloads under normal conditions, the browser may evict cached data under device storage pressure or manual browser data clearing.
+- **Inference Latency**: Latency of ~140 ms per 800px photo was measured on Apple Silicon M-series desktop hardware. Physical mobile performance is unverified and depends heavily on individual smartphone RAM, thermal throttling, and chipset capabilities.
 
 ---
 

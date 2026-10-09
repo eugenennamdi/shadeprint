@@ -117,11 +117,15 @@ class VisionClassifierService {
       try {
         this.notifyProgress({ status: 'initiate', name: 'Initializing CLIP Vision Model...' });
 
-        // ponytail: Xenova/clip-vit-base-patch32 is standard open-weight zero-shot vision model
+        // ponytail: Explicitly request 'fp32' precision. Transformers.js defaults WASM to 'q8',
+        // but empirical benchmarking revealed q8 severely degrades on architectural shade
+        // (misclassifying storefront and colonnade shadows as direct sun).
+        // Tradeoff ceiling: ~606 MB initial download payload vs 154 MB for q8.
         const pipelineInstance = await pipeline(
           'zero-shot-image-classification',
           'Xenova/clip-vit-base-patch32',
           {
+            dtype: 'fp32',
             progress_callback: (p: any) => {
               this.notifyProgress({
                 status: p.status,

@@ -108,7 +108,7 @@ const PROMPTS = [
 
 async function runEvaluation() {
   console.log('Loading production Xenova/clip-vit-base-patch32 pipeline (fp32)...');
-  const classifier = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
+  const classifier = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32', { dtype: 'fp32' });
   console.log('Classifier ready.\n');
 
   const results = [];

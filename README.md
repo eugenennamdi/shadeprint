@@ -24,10 +24,10 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 - **Client-Side Open-Weight Vision AI**: Runs zero-shot image classification locally using `Xenova/clip-vit-base-patch32` via Hugging Face Transformers.js and ONNX Web Runtime.
 - **Human-in-the-Loop Ground Truth**: The AI provides a relative similarity suggestion; the human observer confirms or corrects the ground truth. User overrides are preserved and honored.
 - **100% Privacy by Design**: Zero cloud image uploads, zero analytics trackers, and zero required user accounts or geolocation permissions. All records persist locally in IndexedDB.
-- **Offline Capable**: Once the open-weight model is cached by your browser, all vision inference and notebook features function with no internet connection.
+- **Offline Caching (Cache API)**: Once model weights are fetched and stored in the browser Cache API, inference runs locally without re-downloading, subject to browser storage eviction policies.
 - **Technical Honesty**: Explicitly avoids misleading microclimate or UV claims. We classify *visible physical shade characteristics*, not ambient temperatures or canopy percentages.
 - **Exportable Field Reports**: Export your synthesized neighborhood walk to PDF / print, or copy a clean plain-text log.
-- **Sample Demonstration Mode**: Includes bundled, realistic pedestrian test imagery so evaluators and judges can test the full AI inference pipeline immediately without going outside first.
+- **Sample Demonstration Mode**: Includes bundled photographic reference test imagery so evaluators and judges can test the full AI inference pipeline immediately without going outside first.
 
 ---
 
@@ -37,12 +37,12 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 | :--- | :--- |
 | **Model** | `Xenova/clip-vit-base-patch32` |
 | **Architecture** | Vision Transformer (ViT-B/32) Contrastive Language-Image Pre-training |
-| **Runtime** | `@huggingface/transformers` v3.3.3 + ONNX Web Runtime (WASM SIMD) |
+| **Runtime** | `@huggingface/transformers` v3.8.1 + ONNX Web Runtime (WASM SIMD) |
 | **Task** | Zero-shot image classification |
 | **Execution** | 100% Client-side (in-browser WebAssembly) |
 | **Model License** | Apache 2.0 (Open Weights) |
-| **Weight Size** | ~606 MB (unquantized FP32 ONNX weights; one-time cold download, cached permanently in browser Cache API; subsequent visits transfer 0 bytes) |
-| **Inference Latency** | ~150 ms – 300 ms on modern mobile / desktop CPU |
+| **Weight Size** | ~606 MB (`onnx/model.onnx` explicitly configured with `dtype: 'fp32'`; cached in browser Cache API) |
+| **Inference Latency** | ~140 ms verified on Apple Silicon M-series desktop CPU; mobile device latency is unverified and hardware-dependent |
 
 ### Candidate Classification Prompts
 1. **Tree Shade** (`tree_shade`): `"a pedestrian walkway shaded by trees and green foliage"`
@@ -66,6 +66,7 @@ Shadeprint asks you to step outside, take a 10-minute walk around your block, ph
 - **Visual vs. Thermal**: A photograph records visible light and shadows, not thermodynamic metrics. Shadeprint does not claim to measure ambient temperature, radiant surface heat, or UV index.
 - **Lighting Conditions**: Twilight, heavy overcast conditions, or night walks cannot be reliably classified by visual shade models.
 - **Relative Scores**: CLIP similarity scores are relative contrastive similarities, not calibrated probabilities. When top candidate scores are close (< 10% delta), Shadeprint flags relative uncertainty.
+- **Synthetic Test Benchmark**: Evaluation fixtures in this repository are project-synthesized photographic references. They verify pipeline execution and document specific edge cases (such as flat overcast diffuse light), but do not constitute an empirical real-world field trial across diverse global geographies.
 
 ---
 
