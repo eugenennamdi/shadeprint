@@ -35,6 +35,7 @@ export function App() {
   } | null>(null);
 
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [inProgressSession, setInProgressSession] = useState<FieldSession | null>(null);
 
   // Load saved sessions from IndexedDB on startup
   useEffect(() => {
@@ -44,6 +45,12 @@ export function App() {
         // Sort descending by startedAt
         sessions.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
         setPastSessions(sessions);
+
+        // Detect in-progress interrupted walk
+        const unfinished = sessions.find(
+          (s) => !s.completedAt && s.observations.length > 0 && s.observations.length < 3
+        );
+        setInProgressSession(unfinished || null);
       } catch (err) {
         console.error('Failed to load past sessions:', err);
       }
@@ -152,6 +159,28 @@ export function App() {
     setCurrentScreen('report');
   };
 
+  // Resume interrupted walk
+  const handleResumeWalk = (session: FieldSession) => {
+    setActiveSession(session);
+    setCurrentStopIndex(session.observations.length);
+    setPendingPhoto(null);
+    setInProgressSession(null);
+    setCurrentScreen('between');
+  };
+
+  // Discard interrupted walk
+  const handleDiscardWalk = async (sessionId: string) => {
+    try {
+      await deleteSession(sessionId);
+      setInProgressSession(null);
+      const all = await getAllSessions();
+      all.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      setPastSessions(all);
+    } catch (err) {
+      console.error('Failed to discard interrupted walk:', err);
+    }
+  };
+
   // Reset current walk
   const handleResetWalk = () => {
     if (window.confirm('Reset this field session and return to the beginning?')) {
@@ -181,6 +210,7 @@ export function App() {
     try {
       await clearAllData();
       setPastSessions([]);
+      setInProgressSession(null);
       setActiveSession(null);
       setCurrentScreen('intro');
     } catch (err) {
@@ -206,6 +236,9 @@ export function App() {
             onStartSample={handleStartSample}
             onViewPastReport={handleViewPastReport}
             pastSessions={pastSessions}
+            inProgressSession={inProgressSession}
+            onResumeWalk={handleResumeWalk}
+            onDiscardWalk={handleDiscardWalk}
           />
         )}
 

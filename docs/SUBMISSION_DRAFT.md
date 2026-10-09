@@ -34,7 +34,12 @@ In hot urban environments, the difference between a tree-shaded canopy sidewalk 
 - **Interactive Sample Mode**: If you are testing this at your desk before stepping outside, Shadeprint features a built-in **Sample Mode** with bundled, realistic pedestrian test photography. It executes the exact same on-device open-weight vision model pipeline in real-time.
 - **Walkthrough Video**: [INSERT_VIDEO_DEMO_URL_HERE]
 
-*(Photographs from my own real-world neighborhood field test walk will be attached here upon outdoor testing: [INSERT_FIELD_TEST_PHOTOS])*
+### Outdoor Field Trial Evidence (To Be Captured on Walk)
+1. **Photo 1**: Tree-lined sidewalk canopy photo + AI suggestion confirmation.
+2. **Photo 2**: Storefront awning or building shadow photo + ground-truth verification.
+3. **Photo 3**: Open sunny crosswalk or park plaza photo + observation review.
+4. **Final Report Export**: PDF / Printout of the completed 3-stop field synthesis.
+*(Insert field photos here: [INSERT_FIELD_TEST_PHOTOS])*
 
 ---
 

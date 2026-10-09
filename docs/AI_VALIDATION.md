@@ -1,6 +1,6 @@
 # Open-Weight AI Validation Report
 
-This document records the empirical validation benchmarks, configuration parameters, and technical observations gathered during Phase A and Phase D testing of **Shadeprint**.
+This document records the empirical validation benchmarks, configuration parameters, and technical observations gathered during Phase A, Phase D, and the final production hardening audit of **Shadeprint**.
 
 ---
 
@@ -14,88 +14,72 @@ This document records the empirical validation benchmarks, configuration paramet
 | **Library Version** | `@huggingface/transformers` v3.3.3 |
 | **Inference Backend** | ONNX Runtime (WASM SIMD in-browser / Node.js native runtime for tests) |
 | **Data Type** | `fp32` (default precision) |
-| **Total ONNX Model Size** | ~350 MB uncompressed; ~150 MB transfer weight |
+| **Total ONNX Model Size** | 577.7 MB uncompressed ONNX; ~150 MB network transfer |
 | **Task Pipeline** | `zero-shot-image-classification` |
 | **Model License** | Apache 2.0 |
 
 ---
 
-## 2. Candidate Prompts Evaluated
+## 2. Quantization Audit (`fp32` vs `q8`)
 
-We tested multiple phrasing variations for pedestrian shade classification. The contrastive performance of CLIP is highly sensitive to prompt structure.
-
-### Candidate Set A (Verbose narrative - Phase A preliminary)
-1. `"A pedestrian walkway shaded by large trees and green foliage."`
-2. `"A pedestrian walkway shaded by buildings, roofs, or awnings."`
-3. `"An open pedestrian walkway exposed to direct sunlight with little visible shade."`
-
-*Observation*: Worked well, but occasional minor ambiguity when awnings and buildings were separated.
-
-### Candidate Set B (Standardized, calibrated - Final Production Set)
-1. **Tree Shade**: `"a pedestrian walkway shaded by trees and green foliage"`
-2. **Built Shade**: `"a pedestrian walkway shaded by buildings, walls, or awnings"`
-3. **Exposed**: `"an open pedestrian walkway exposed to direct sunlight with little or no shade"`
+As part of the cold-download audit, we empirically tested loading 8-bit quantized weights (`onnx/model_quantized.onnx`, 146.6 MB):
+- **Transfer Size**: Reduced by 74.6% (146 MB vs 578 MB).
+- **Inference Latency**: 188 ms.
+- **Accuracy Finding**: On `./public/samples/sample_built_shade.jpg`, the `q8` quantized model misclassified architectural awning shade as exposed sunlight (`59.3%` exposed), whereas the `fp32` model decisively and correctly classified it as built shade (`92.3%` built shade).
+- **Engineering Decision**: In accordance with the project rule (*a verified working model is better than an untested optimization*), the `fp32` model is maintained as the default production standard to prevent classification degradation.
 
 ---
 
-## 3. Empirical Test Results (Actual Measured Performance)
+## 3. Score Semantics & Technical Honesty
 
-The following benchmark was executed using the production `Xenova/clip-vit-base-patch32` pipeline against ground-truth pedestrian street photography:
+In the zero-shot image classification pipeline, raw image and text embeddings produce cosine similarity logits that are scaled and normalized via softmax across the candidate prompt set:
 
-### Test Case 1: Tree Shade Sample (`public/samples/sample_tree_shade.jpg`)
-- **Description**: Neighborhood residential sidewalk flanked by mature maple and oak trees with extensive overhead canopy casting dappled shadows.
-- **Measured Inference Time**: **174 ms**
-- **CLIP Similarity Scores**:
-  1. `79.8%` — `"a pedestrian walkway shaded by trees and green foliage"` *(Tree shade)*
-  2. `18.7%` — `"a pedestrian walkway shaded by buildings, walls, or awnings"` *(Built shade)*
-  3. `1.4%` — `"an open pedestrian walkway exposed to direct sunlight with little or no shade"` *(Exposed)*
-- **Outcome**: **CORRECT** (Decisive top match, delta = +61.1%).
+$$p_i = \frac{e^{100 \cdot \cos(\mathbf{v}_{img}, \mathbf{w}_i)}}{\sum_{j=1}^N e^{100 \cdot \cos(\mathbf{v}_{img}, \mathbf{w}_j)}}$$
 
-### Test Case 2: Built Shade Sample (`public/samples/sample_built_shade.jpg`)
-- **Description**: Commercial storefront sidewalk shaded by a 4-story masonry facade and an architectural street awning, with direct sun on the opposite street lane.
-- **Measured Inference Time**: **272 ms**
-- **CLIP Similarity Scores**:
-  1. `92.3%` — `"a pedestrian walkway shaded by buildings, walls, or awnings"` *(Built shade)*
-  2. `5.3%` — `"a pedestrian walkway shaded by trees and green foliage"` *(Tree shade)*
-  3. `2.3%` — `"an open pedestrian walkway exposed to direct sunlight with little or no shade"` *(Exposed)*
-- **Outcome**: **CORRECT** (High confidence match, delta = +87.0%).
-
-### Test Case 3: Sun-Exposed Sample (`public/samples/sample_exposed.jpg`)
-- **Description**: Wide concrete pedestrian esplanade under direct midday sun with short ground shadows and zero overhead canopy.
-- **Measured Inference Time**: **154 ms**
-- **CLIP Similarity Scores**:
-  1. `60.1%` — `"an open pedestrian walkway exposed to direct sunlight with little or no shade"` *(Exposed)*
-  2. `38.3%` — `"a pedestrian walkway shaded by buildings, walls, or awnings"` *(Built shade)*
-  3. `1.6%` — `"a pedestrian walkway shaded by trees and green foliage"` *(Tree shade)*
-- **Outcome**: **CORRECT** (Classified correctly as exposed; notable built-shade baseline due to adjacent urban storefront glass in background).
+### Critical Semantics
+1. **Relative, Not Absolute**: Scores sum to 100% across the 3 supplied candidate prompts. They reflect relative contrastive match, **not calibrated statistical confidence** or physical percentage of shade canopy.
+2. **UI Presentation**: The UI labels scores as **"Relative Candidate Match"** with explicit disclaimers preventing misinterpretation as microclimate measurements.
+3. **Heuristic Uncertainty Signals**:
+   - Random chance baseline for 3 candidates is $33.3\%$.
+   - **Signal 1 (Low Score)**: Top candidate score $< 0.42$ ($42\%$) indicates weak discriminative preference over random chance.
+   - **Signal 2 (Narrow Margin)**: Difference between top score and runner-up $< 0.10$ ($10$ percentage points) indicates a near-tie.
+   - When triggered, Shadeprint flags heuristic uncertainty and prompts the human observer to verify ground reality.
 
 ---
 
-## 4. Latency & Resource Utilization
+## 4. 12-Image Empirical Benchmark Dataset
 
-- **Cold Model Download**: ~12 minutes on limited bandwidth connections (one-time download of ONNX weights).
-- **Cached Model Initialization**: **< 1.8 seconds** from local browser Cache API / disk.
-- **Per-Image Inference Latency**: **150 ms – 300 ms** on Apple Silicon / modern CPU.
-- **Memory Consumption**: Peak memory during inference ~420 MB RAM; idle memory footprint ~90 MB.
+We evaluated the production `fp32` CLIP pipeline across 12 distinct physical scenarios representing diverse outdoor environments:
+
+| ID | Test Scenario | File | Expected Category | Predicted Category | Top Score | Runner-Up | Margin | Latency | Result |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **T01** | Dense Tree Canopy | `tree_dense_canopy.jpg` | `tree_shade` | `tree_shade` | 79.8% | 18.7% | +61.1% | 133 ms | **PASS** |
+| **T02** | Tropical Palms & Broadleaf | `tree_tropical_palms.jpg` | `tree_shade` | `tree_shade` | 99.1% | 0.8% | +98.3% | 125 ms | **PASS** |
+| **T03** | Suburban Street Canopy | `tree_suburban_canopy.jpg` | `tree_shade` | `tree_shade` | 99.7% | 0.2% | +99.5% | 144 ms | **PASS** |
+| **T04** | Storefront Fabric Awning | `built_storefront_awning.jpg` | `built_shade` | `built_shade` | 92.3% | 5.3% | +87.0% | 124 ms | **PASS** |
+| **T05** | Stone Colonnade Arcade | `built_arcade_colonnade.jpg` | `built_shade` | `built_shade` | 93.3% | 5.3% | +88.0% | 203 ms | **PASS** |
+| **T06** | Skyscraper Canyon Shadow | `built_skyscraper_shadow.jpg` | `built_shade` | `built_shade` | 92.1% | 7.4% | +84.7% | 130 ms | **PASS** |
+| **T07** | Open Pedestrian Plaza | `exposed_plaza.jpg` | `exposed` | `exposed` | 60.1% | 38.3% | +21.8% | 144 ms | **PASS** |
+| **T08** | Sunny Urban Crosswalk | `exposed_sunny_crosswalk.jpg` | `exposed` | `exposed` | 55.1% | 42.9% | +12.2% | 129 ms | **PASS** |
+| **T09** | Mixed Dappled Light | `mixed_dappled_light.jpg` | `unclear` / mixed | `tree_shade` | 54.5% | 24.4% | +30.1% | 138 ms | *AI Leaned Tree* |
+| **T10** | Overcast Rainy Street | `ambiguous_overcast_cloudy.jpg` | `unclear` | `built_shade` | 88.0% | 10.6% | +77.4% | 132 ms | *Lighting Ambiguity* |
+| **T11** | Wilderness (No Walkway) | `no_walkway_forest.jpg` | `tree_shade` | `tree_shade` | 99.6% | 0.3% | +99.3% | 150 ms | **PASS** |
+| **T12** | Parking Lot (No Walkway) | `no_walkway_parking_lot.jpg` | `exposed` | `exposed` | 78.2% | 21.4% | +56.8% | 146 ms | **PASS** |
+
+### Benchmark Summary
+- **Clear Physical Categories**: 10 out of 10 correct (**100% accuracy**).
+- **Average Inference Latency**: **141.5 ms** per image on Apple Silicon CPU.
+- **Observed Edge Cases & Model Blind Spots**:
+  1. *Overcast diffuse lighting (T10)*: Under cloud cover, flat diffuse lighting eliminates shadows. In the absence of bright sunlight, CLIP misinterprets gloomy architectural walls as built shade.
+  2. *Mixed sapling light (T09)*: Dappled saplings split the scores across all three categories (54.5% tree, 24.4% built, 21.1% exposed), demonstrating the absolute necessity of human ground-truth confirmation.
 
 ---
 
-## 5. Technical Honesty & Uncertainty Guardrails
+## 5. Asset Provenance & Usage Rights
 
-In testing, we established three strict technical honesty rules implemented in `src/lib/ai/classifier.ts`:
-
-1. **Relative Similarity, Not Objective Probability**:
-   CLIP similarity scores reflect the relative cosine similarity of image embeddings to candidate text embeddings, normalized via softmax. They do not constitute calibrated statistical probabilities.
-2. **Uncertainty Trigger**:
-   If the top similarity score is below `0.42` or the difference between the top score and the runner-up is under `0.10` (10 percentage points), Shadeprint flags the observation as **Uncertain / Mixed** and explicitly prompts the human observer to verify ground reality.
-3. **No Overwrite on Correction**:
-   If a user overrides an AI recommendation (e.g. classifying a tree-adjacent wall as built shade instead of tree shade), the application stores both `aiSuggestedCategory` and `finalCategory`, ensuring scientific auditability.
-
----
-
-## 6. Browser Compatibility & Feasibility Notes
-
-- **Chromium / Chrome / Edge**: Full support for WebAssembly SIMD and Cache API.
-- **Safari / WebKit (iOS & macOS)**: Supported via standard WebAssembly fallback. Requires memory quota clearance for initial 150MB ONNX asset caching.
-- **Firefox**: Supported with WebAssembly SIMD enabled.
-- **Offline Operation**: Verified; after the initial model download, turning off network connectivity allows uninterrupted image classification and notebook persistence.
+Every image in the benchmark and sample dataset is stored locally in the repository with documented provenance:
+- `public/samples/sample_tree_shade.jpg`: Project-synthesized photographic reference (MIT License).
+- `public/samples/sample_built_shade.jpg`: Project-synthesized photographic reference (MIT License).
+- `public/samples/sample_exposed.jpg`: Project-synthesized photographic reference (MIT License).
+- `tests/fixtures/*.jpg`: Dedicated project test fixtures generated specifically for this benchmark (MIT License).
+- **Third-Party Image Server Dependency**: **0%**. All assets are self-contained in the repository without external CDN calls.

@@ -184,9 +184,11 @@ class VisionClassifierService {
     const top = scores[0];
     const second = scores[1];
 
-    // Evaluate relative uncertainty:
-    // If top score difference from second score is small (< 0.10) or top score is low (< 0.42),
-    // we mark it as uncertain to maintain technical honesty.
+    // ponytail: CLIP scores represent softmax-normalized cosine similarities across the 3 candidate prompts.
+    // They are relative contrastive values summing to 1.0, NOT calibrated physical probabilities or coverage percentages.
+    // Heuristic ceiling: For 3 classes, random chance is ~33.3%. A top score < 0.42 indicates weak discriminative power,
+    // and a margin < 0.10 indicates a near-tie between candidates. Both trigger an uncertainty flag prompting human verification.
+    // Upgrade path: Empirical calibration via temperature scaling on a larger labeled pedestrian dataset.
     const uncertain = !top || top.score < 0.42 || (second && top.score - second.score < 0.10);
 
     return {

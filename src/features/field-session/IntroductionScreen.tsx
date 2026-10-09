@@ -19,6 +19,9 @@ interface IntroductionScreenProps {
   onStartSample: () => void;
   onViewPastReport: (session: FieldSession) => void;
   pastSessions: FieldSession[];
+  inProgressSession?: FieldSession | null;
+  onResumeWalk?: (session: FieldSession) => void;
+  onDiscardWalk?: (sessionId: string) => void;
 }
 
 export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
@@ -26,6 +29,9 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
   onStartSample,
   onViewPastReport,
   pastSessions,
+  inProgressSession,
+  onResumeWalk,
+  onDiscardWalk,
 }) => {
   return (
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 sm:py-12 flex flex-col justify-between">
@@ -42,9 +48,50 @@ export const IntroductionScreen: React.FC<IntroductionScreenProps> = ({
         </h1>
 
         {/* Description */}
-        <p className="text-base sm:text-lg text-stone-slate leading-relaxed mb-8 max-w-xl">
+        <p className="text-base sm:text-lg text-stone-slate leading-relaxed mb-6 max-w-xl">
           Take a short walk. Document three everyday places. Let locally running open-weight AI examine visible canopy and architectural cover. See your familiar streets with fresh eyes.
         </p>
+
+        {/* Interrupted Session Recovery Banner */}
+        {inProgressSession && onResumeWalk && (
+          <div className="mb-8 p-4 rounded-xl bg-forest-100/90 border border-forest-600/30 text-xs text-forest-900 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-forest-600 animate-pulse" />
+                <span className="font-semibold uppercase tracking-wider text-[11px] text-forest-800">
+                  Walk In Progress Detected
+                </span>
+              </div>
+              <span className="text-[11px] text-stone-muted">
+                {formatFieldDate(inProgressSession.startedAt)}
+              </span>
+            </div>
+            <p className="text-stone-slate mb-3 leading-relaxed">
+              You have an active walk with <strong>{inProgressSession.observations.length} of 3 stops</strong> recorded on this device.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                variant="primary" 
+                onClick={() => onResumeWalk(inProgressSession)} 
+                className="flex items-center gap-1.5 shadow-sm"
+              >
+                <Footprints className="w-3.5 h-3.5" />
+                <span>Resume walk (Stop 0{inProgressSession.observations.length + 1})</span>
+              </Button>
+              {onDiscardWalk && (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => onDiscardWalk(inProgressSession.id)} 
+                  className="text-stone-muted hover:text-red-700"
+                >
+                  Discard
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Primary CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mb-10">

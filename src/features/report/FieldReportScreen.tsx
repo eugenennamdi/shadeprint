@@ -142,6 +142,12 @@ export const FieldReportScreen: React.FC<FieldReportScreenProps> = ({
           <p className="text-sm text-stone-slate">
             Three walking locations observed, classified via on-device open-weight vision AI, and confirmed through human ground-truth observation.
           </p>
+
+          {isSample && (
+            <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+              <strong>Evaluation Notice:</strong> This report was generated using bundled sample photography for desk review. It demonstrates actual on-device model inference, but does not represent a completed physical walk.
+            </div>
+          )}
         </div>
 
         {/* Honest Synthesis / Data Takeaway Card */}
@@ -253,7 +259,7 @@ export const FieldReportScreen: React.FC<FieldReportScreenProps> = ({
                       <div className="pt-2 text-xs space-y-1.5 border-t border-stone-border/40">
                         <div className="flex items-center gap-1 text-[11px] text-stone-muted">
                           <Cpu className="w-3 h-3 text-forest-700" />
-                          <span>CLIP model relative similarity:</span>
+                          <span>Relative candidate prompt match:</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           {obs.modelScoreDetails.map((scoreItem) => (

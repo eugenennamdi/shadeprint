@@ -191,15 +191,20 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
         {modelStatus === 'success' && (
           <div className="mb-6 p-4 rounded-xl bg-paper-50 border border-stone-border/80 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-forest-700" />
-                <span className="text-xs font-semibold text-forest-900">
-                  Open-Weight Vision Scores
-                </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-forest-700" />
+                  <span className="text-xs font-semibold text-forest-900">
+                    Relative Candidate Match
+                  </span>
+                </div>
+                <p className="text-[10px] text-stone-muted mt-0.5">
+                  Contrastive scores normalized across candidate prompts. Not an absolute physical probability.
+                </p>
               </div>
               {inferenceDurationMs !== null && (
-                <span className="text-[11px] font-mono text-stone-muted">
-                  {inferenceDurationMs}ms inference
+                <span className="text-[11px] font-mono text-stone-muted shrink-0">
+                  {inferenceDurationMs}ms
                 </span>
               )}
             </div>
@@ -217,7 +222,7 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
                         <span>{CATEGORY_METADATA[s.category]?.name || s.category}</span>
                       </span>
                       <span className="font-mono text-[11px] text-stone-muted font-medium">
-                        {percent}% similarity
+                        Relative match: {percent}%
                       </span>
                     </div>
                     <div className="h-1.5 w-full bg-paper-200 rounded-full overflow-hidden">
@@ -236,9 +241,9 @@ export const ObservationReviewScreen: React.FC<ObservationReviewScreenProps> = (
             {/* Uncertainty notice if applicable */}
             {isUncertain && (
               <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.2" />
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
-                  <strong>Relative uncertainty:</strong> The model detected subtle or mixed lighting conditions. Trust your own eyes and pick the category you actually experienced.
+                  <strong>Heuristic uncertainty:</strong> Low margin between candidates or low overall score. The model makes a suggestion, not an authoritative determination—verify what you actually observed below.
                 </p>
               </div>
             )}
